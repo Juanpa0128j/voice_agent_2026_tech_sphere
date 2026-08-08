@@ -5,3 +5,5 @@ torch>=1.13.0
 faiss-cpu==1.7.3
 pypdf==3.14.0
 numpy==1.26.0
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
