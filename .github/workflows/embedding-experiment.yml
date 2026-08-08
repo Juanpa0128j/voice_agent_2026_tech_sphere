@@ -2,13 +2,21 @@ name: Embedding Experiment
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout for the experiment'
+        required: false
+        default: 'main'
 
 jobs:
   embed:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
