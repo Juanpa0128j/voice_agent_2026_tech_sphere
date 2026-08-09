@@ -12,14 +12,17 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
-def test_assist_endpoint_requires_transcript():
-    response = client.post("/api/assist", json={})
-    assert response.status_code == 422
-
-
-def test_assist_endpoint_empty_transcript():
+def test_assist_endpoint_empty_transcript_no_greeting():
     response = client.post("/api/assist", json={"transcript": ""})
     assert response.status_code in (400, 503)
+
+
+def test_assist_endpoint_greeting_with_empty_transcript():
+    response = client.post(
+        "/api/assist",
+        json={"transcript": "", "greeting": True, "call_id": "g-1"},
+    )
+    assert response.status_code in (200, 503)
 
 
 def test_admin_list_documents():

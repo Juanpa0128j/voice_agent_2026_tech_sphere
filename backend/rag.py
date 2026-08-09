@@ -10,8 +10,27 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 
+CHUNK_SIZE = 1200
+
+
 def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
+    """Backward-compat: keep the original signature. Newline collapsing
+    and short-chunk filtering live in the reindex path only.
+    """
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+
+def _chunk_for_index(text: str, chunk_size: int = CHUNK_SIZE) -> List[str]:
+    """Indexing-time chunker: collapses whitespace and drops tiny chunks
+    so ChromaDB doesn't get noise rows from headers/footers.
+    """
+    txt = text.replace("\n", " ").strip()
+    out: List[str] = []
+    for i in range(0, len(txt), chunk_size):
+        chunk = txt[i:i + chunk_size]
+        if len(chunk) > 40:
+            out.append(chunk)
+    return out
 
 
 class RAGStore:
@@ -72,6 +91,68 @@ class RAGStore:
             })
         return out
 
+    def reindex(self, data_dir: str = "") -> Dict:
+        """Walk the configured dataset directory and reindex every PDF.
+
+        Returns a summary dict with counts. Clears the existing collection
+        first to avoid stale chunks. Reads ``ADMIN_DATA_DIR`` env var when
+        ``data_dir`` is not provided.
+        """
+        from pypdf import PdfReader
+
+        data_dir = data_dir or os.environ.get("ADMIN_DATA_DIR", "dataset/textos")
+        root = Path(data_dir)
+        if not root.is_dir():
+            return {"ok": False, "error": f"data dir not found: {data_dir}", "indexed": 0, "skipped": 0}
+
+        # Drop existing collection so reindex is idempotent
+        try:
+            self._client.delete_collection(self.collection_name)
+        except Exception:
+            pass
+        self._collection = self._client.get_or_create_collection(
+            name=self.collection_name,
+            embedding_function=self._embedding_fn,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+        indexed = 0
+        skipped = 0
+        errors: List[str] = []
+        for pdf in sorted(root.rglob("*.pdf")):
+            try:
+                reader = PdfReader(str(pdf))
+                text = "\n".join((p.extract_text() or "") for p in reader.pages)
+            except Exception as exc:
+                errors.append(f"{pdf.name}: {exc}")
+                skipped += 1
+                continue
+            if not text or len(text.strip()) < 40:
+                skipped += 1
+                continue
+            try:
+                rel = str(pdf.relative_to(root))
+            except ValueError:
+                rel = pdf.name
+            chunks = []
+            for i, chunk in enumerate(_chunk_for_index(text)):
+                chunks.append({"id": f"{rel}_{i}", "text": chunk, "source": rel})
+            try:
+                self.add_documents(chunks)
+                indexed += len(chunks)
+            except Exception as exc:
+                errors.append(f"{pdf.name}: add failed: {exc}")
+                skipped += 1
+
+        return {
+            "ok": True,
+            "indexed": indexed,
+            "skipped": skipped,
+            "errors": errors[:10],
+            "data_dir": data_dir,
+            "total_chunks": self._collection.count(),
+        }
+
 
 def retrieve_context(
     store: RAGStore,
@@ -122,3 +203,5 @@ def _add_document_facade(self, doc_id: str, text: str, metadata: dict = None):
 RAGStore.list_documents = _list_documents
 RAGStore.retrieve = _retrieve_facade
 RAGStore.add_document = _add_document_facade
+RAGStore.reindex = RAGStore.reindex
+

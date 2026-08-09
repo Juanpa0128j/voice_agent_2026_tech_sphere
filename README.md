@@ -1,6 +1,21 @@
+---
+title: Voice Agent — Post-op Follow-up
+emoji: 🩺
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Spanish voice agent for post-op follow-up (Tech Sphere 2026)
+---
+
 # Voice Agent — Tech Sphere Challenge 2026
 
 Agente de voz con IA para seguimiento postoperatorio. Construido para el [Tech Sphere Challenge 2026](https://sourcemeridian.com/tech-sphere-challenge).
+
+> **Live demo on Hugging Face Spaces:** https://huggingface.co/spaces/Juanpa0128j/voice-agent
+> Set `GROQ_API_KEY` as a Space secret in Settings → Variables.
 
 ## Quickstart (≤15 minutos)
 

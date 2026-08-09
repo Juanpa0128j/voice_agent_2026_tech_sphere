@@ -31,12 +31,48 @@ except Exception:
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("voice_agent.api")
 
 
 app = FastAPI(title="Voice Agent API")
+
+
+# ---------------------------------------------------------------------------
+# Static frontend (mounted at /)
+# ---------------------------------------------------------------------------
+# Serves frontend/index.html, frontend/admin.html and their assets so a
+# single container (e.g. Hugging Face Space) can host both the API and the
+# UI on the same origin — no CORS needed.
+
+_FRONTEND_DIR = Path(
+    os.environ.get(
+        "FRONTEND_DIR",
+        str(Path(__file__).resolve().parent.parent / "frontend"),
+    )
+)
+if _FRONTEND_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def _root_index() -> Any:
+        index_path = _FRONTEND_DIR / "index.html"
+        if index_path.is_file():
+            from fastapi.responses import FileResponse
+            return FileResponse(str(index_path))
+        return {"status": "ok", "message": "Voice Agent API. UI not found."}
+
+    @app.get("/admin", include_in_schema=False)
+    @app.get("/admin/", include_in_schema=False)
+    @app.get("/admin.html", include_in_schema=False)
+    def _admin_index() -> Any:
+        admin_path = _FRONTEND_DIR / "admin.html"
+        if admin_path.is_file():
+            from fastapi.responses import FileResponse
+            return FileResponse(str(admin_path))
+        return {"error": "admin.html not found"}
 
 
 # ---------------------------------------------------------------------------
@@ -47,12 +83,20 @@ app = FastAPI(title="Voice Agent API")
 class AssistRequest(BaseModel):
     """Body for ``POST /api/assist``."""
 
-    transcript: str = Field(..., description="Patient's spoken/typed utterance")
+    transcript: str = Field(default="", description="Patient's spoken/typed utterance")
     call_id: Optional[str] = Field(
         default=None,
         description="Optional call/session id; a new one is generated when omitted",
     )
     k: int = Field(default=3, ge=1, le=20, description="Number of retrieved chunks")
+    paciente_id: Optional[str] = Field(
+        default=None,
+        description="Optional patient id used to load clinical context",
+    )
+    greeting: bool = Field(
+        default=False,
+        description="When true the request is treated as a call-opening greeting; empty transcript is allowed",
+    )
 
 
 class AssistResponse(BaseModel):
@@ -242,14 +286,16 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
     """Main agent endpoint.
 
     Accepts a ``transcript`` and returns a synthesized response along with
-    retrieval provenance and the routing decision.  When optional modules
-    (RAG, LLM, decision engine, conversation store) are not yet wired the
-    endpoint still succeeds at the validation level — the empty/short
-    transcript case is rejected with HTTP 400, and a fully constructed
-    request that would require the missing stack returns HTTP 503.
+    retrieval provenance and the routing decision.  When ``greeting`` is
+    true an empty transcript is allowed and the response is the
+    call-opening greeting; otherwise empty transcripts are rejected with
+    HTTP 400.  When optional modules (RAG, LLM, decision engine,
+    conversation store) are not yet wired, the endpoint returns HTTP 503.
     """
     transcript = (req.transcript or "").strip()
-    if not transcript:
+    is_greeting = bool(req.greeting) and not transcript
+
+    if not transcript and not is_greeting:
         raise HTTPException(status_code=400, detail="Empty transcript")
 
     call_id = req.call_id or uuid.uuid4().hex
@@ -277,19 +323,32 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         )
 
     retrieval: List[Dict[str, Any]] = []
-    try:
-        retrieval = list(rag.retrieve(transcript, k=req.k) or [])
-    except Exception as exc:  # noqa: BLE001 - return 503 on retrieval failure
-        logger.warning("RAG retrieve failed: %s", exc)
-        return JSONResponse(
-            status_code=503,
-            content=_module_unavailable_response("rag"),
-        )
+    if not is_greeting:
+        try:
+            retrieval = list(rag.retrieve(transcript, k=req.k) or [])
+        except Exception as exc:  # noqa: BLE001 - return 503 on retrieval failure
+            logger.warning("RAG retrieve failed: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content=_module_unavailable_response("rag"),
+            )
 
     context = "\n\n".join(str(item.get("text", "")) for item in retrieval)
 
     try:
-        response_text = llm.generate(transcript=transcript, context=context)
+        response_text = llm.generate(
+            transcript=transcript, context=context, greeting=is_greeting
+        )
+    except TypeError:
+        # Backwards-compat: older LLMClient without greeting kwarg
+        try:
+            response_text = llm.generate(transcript=transcript, context=context)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("LLM generate failed: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content=_module_unavailable_response("llm"),
+            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("LLM generate failed: %s", exc)
         return JSONResponse(
@@ -303,7 +362,7 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         logger.warning("Decision engine failed: %s", exc)
         decision_payload = {"action": "respond", "reason": "fallback"}
 
-    if conversation is not None:
+    if conversation is not None and not is_greeting:
         try:
             conversation.append(call_id, transcript, response_text, decision_payload)
         except Exception as exc:  # noqa: BLE001
