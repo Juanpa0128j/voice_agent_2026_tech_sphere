@@ -59,7 +59,9 @@ class LLMClient:
         context: str = "",
         history: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
-        from backend.prompts import SYSTEM_PROMPT
+        from backend.prompts import SYSTEM_PROMPT, GREETING_INSTRUCTION
+        is_greeting = not transcript.strip()
+        system_prompt = SYSTEM_PROMPT + GREETING_INSTRUCTION if is_greeting else SYSTEM_PROMPT
         conversation: List[Dict[str, Any]] = []
         for turn in history or []:
             t = (turn.get("transcript") or "").strip()
@@ -68,9 +70,9 @@ class LLMClient:
                 conversation.append({"role": "user", "content": t})
             if r:
                 conversation.append({"role": "assistant", "content": r})
-        conversation.append({"role": "user", "content": transcript})
+        conversation.append({"role": "user", "content": transcript or "Hola"})
         messages = build_messages(
-            SYSTEM_PROMPT,
+            system_prompt,
             conversation,
             context_docs=[context] if context else None,
         )

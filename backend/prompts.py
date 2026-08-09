@@ -39,6 +39,14 @@ DISCLAIMER OBLIGATORIO (incluir en la primera respuesta o cuando aplique):
 """
 
 
+GREETING_INSTRUCTION: str = (
+    "\n\nINSTRUCCIÓN PARA EL SALUDO DE APERTURA: Esta es la primera respuesta de la"
+    " llamada. Sé breve: 2-3 frases cortas (máximo ~45 palabras en total),"
+    " incluyendo el disclaimer obligatorio de forma resumida. No hagas más de"
+    " una pregunta."
+)
+
+
 COLOMBIAN_SLANG_GLOSSARY: Dict[str, str] = {
     "abajito": "región inferior del abdomen (bajo vientre)",
     "chiche": "mama (pecho, seno)",

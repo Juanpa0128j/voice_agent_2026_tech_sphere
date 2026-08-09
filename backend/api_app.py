@@ -299,6 +299,20 @@ def _module_unavailable_response(module_name: str) -> Dict[str, str]:
     return {"error": f"Module {module_name} not available yet"}
 
 
+@app.on_event("startup")
+async def _warm_rag_store() -> None:
+    """Pre-load the RAG store (embedding model) so the first real request
+    isn't slowed by a cold model load. Skipped under pytest so the test
+    suite doesn't eat the embedding-model load on every run.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return
+    try:
+        get_rag_store()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("RAG warmup failed: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # /api endpoints
 # ---------------------------------------------------------------------------
