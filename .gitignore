@@ -1,8 +1,23 @@
-# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
 venv/
 .env
+.env.local
 
-# Local outputs
 backend/output/
+backend/chroma/
+backend/calls/
+backend/metrics.json
+backend/test_chroma/
+backend/test_uploads/
+
+frontend/node_modules/
+.DS_Store
+*.swp
+.idea/
+.vscode/
