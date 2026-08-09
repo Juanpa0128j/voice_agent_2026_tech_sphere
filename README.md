@@ -178,8 +178,7 @@ PYTHONPATH=. .venv/bin/pytest tests/ -v
 ```
 .
 ├── backend/
-│   ├── api_app.py          # FastAPI endpoints + static frontend mount
-│   ├── admin_app.py        # Admin console endpoints
+│   ├── api_app.py          # FastAPI endpoints (incl. admin) + static frontend mount
 │   ├── patient_context.py  # Perfil clínico del paciente
 │   ├── prompts.py          # System prompt, glosario, few-shot
 │   ├── rag.py              # BGE-M3 + ChromaDB + reindex()
@@ -188,7 +187,6 @@ PYTHONPATH=. .venv/bin/pytest tests/ -v
 │   ├── conversation.py     # Flujo de conversación
 │   ├── summary.py          # Resumen estructurado
 │   ├── metrics.py          # P50/P95/tokens/costo
-│   ├── embedding_example.py# Indexador CLI
 │   └── requirements.txt
 ├── frontend/
 │   ├── index.html          # UI de voz (STT + TTS)

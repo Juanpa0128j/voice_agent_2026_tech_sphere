@@ -1,6 +1,6 @@
 """Tests for LLM client (Groq)."""
 import pytest
-from backend.llm import LLMClient, generate_response, build_messages
+from backend.llm import LLMClient, build_messages
 
 
 def test_llm_client_initialization():
@@ -29,16 +29,3 @@ def test_build_messages_with_context():
     assert "Doc 1" in system_content
     assert "Doc 2" in system_content
 
-
-def test_generate_response_returns_dict(monkeypatch):
-    def mock_call(messages, **kwargs):
-        return {
-            "content": "Respuesta de prueba",
-            "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-        }
-    client = LLMClient(api_key="test", model="llama-3.3-70b-versatile")
-    monkeypatch.setattr(client, "_call", mock_call)
-    result = generate_response(client, "system", [{"role": "user", "content": "Hola"}])
-    assert "response" in result
-    assert "tokens" in result
-    assert result["tokens"]["total"] == 150

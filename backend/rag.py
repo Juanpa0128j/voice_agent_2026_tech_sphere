@@ -160,6 +160,39 @@ class RAGStore:
             "total_chunks": self._collection.count(),
         }
 
+    def list_documents(self):
+        try:
+            results = self._collection.get(include=["metadatas"])
+            seen = {}
+            for mid, meta in zip(results.get("ids", []), results.get("metadatas", [])):
+                meta = meta or {}
+                # Group chunks by source (e.g. "Appendicitis/foo.pdf") so one doc
+                # in the corpus = one row in the admin list
+                source = meta.get("source", mid)
+                if source not in seen:
+                    seen[source] = {
+                        "doc_id": source,
+                        "source": source,
+                        "name": Path(source).name if "/" in source else source,
+                    }
+            return list(seen.values())
+        except Exception:
+            return []
+
+    def retrieve(self, query_text: str, k: int = 5):
+        return self.query(query_text, k=k)
+
+    def add_document(self, doc_id: str, text: str, metadata: dict = None):
+        meta = metadata or {}
+        self.add_documents([{
+            "id": doc_id,
+            "text": text,
+            "source": meta.get("source", doc_id),
+            "doc_id": doc_id,
+            "name": meta.get("filename", doc_id),
+        }])
+        return doc_id
+
 
 def retrieve_context(
     store: RAGStore,
@@ -169,46 +202,4 @@ def retrieve_context(
 ) -> List[Dict]:
     results = store.query(query, k=k)
     return [r for r in results if r.get("score", 0.0) >= score_threshold]
-
-
-def _list_documents(self):
-    try:
-        results = self._collection.get(include=["metadatas"])
-        seen = {}
-        for mid, meta in zip(results.get("ids", []), results.get("metadatas", [])):
-            meta = meta or {}
-            # Group chunks by source (e.g. "Appendicitis/foo.pdf") so one doc
-            # in the corpus = one row in the admin list
-            source = meta.get("source", mid)
-            if source not in seen:
-                seen[source] = {
-                    "doc_id": source,
-                    "source": source,
-                    "name": Path(source).name if "/" in source else source,
-                }
-        return list(seen.values())
-    except Exception:
-        return []
-
-
-def _retrieve_facade(self, query_text: str, k: int = 5):
-    return self.query(query_text, k=k)
-
-
-def _add_document_facade(self, doc_id: str, text: str, metadata: dict = None):
-    meta = metadata or {}
-    self.add_documents([{
-        "id": doc_id,
-        "text": text,
-        "source": meta.get("source", doc_id),
-        "doc_id": doc_id,
-        "name": meta.get("filename", doc_id),
-    }])
-    return doc_id
-
-
-RAGStore.list_documents = _list_documents
-RAGStore.retrieve = _retrieve_facade
-RAGStore.add_document = _add_document_facade
-RAGStore.reindex = RAGStore.reindex
 

@@ -1,7 +1,6 @@
 """Tests for clinical decision logic and severity classification."""
 import pytest
 from backend.decision import (
-    decide,
     decide_from_text,
     score_from_text,
     severity_from_score,
@@ -30,19 +29,6 @@ def test_decide_from_text_bleeding():
 def test_decide_from_text_difficulty_breathing():
     result = decide_from_text("No puedo respirar bien")
     assert result["label"] == "rojo"
-    assert result["alert"] is True
-
-
-def test_decide_from_structured_input():
-    structured = {
-        "dolor_eva": 8,
-        "fiebre_c": 38.5,
-        "secrecion": False,
-        "sangrado": True,
-        "dificultad_respirar": False,
-    }
-    result = decide({"structured": structured})
-    assert result["label"] in ("amarillo", "rojo")
     assert result["alert"] is True
 
 

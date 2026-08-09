@@ -1,5 +1,4 @@
 import os
-import time
 from typing import Any, Dict, List, Optional
 
 from groq import Groq
@@ -90,25 +89,3 @@ def build_messages(
     else:
         system_content = system_prompt
     return [{"role": "system", "content": system_content}, *conversation]
-
-
-def generate_response(
-    client: LLMClient,
-    system_prompt: str,
-    conversation: List[Dict[str, Any]],
-    context_docs: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    messages = build_messages(system_prompt, conversation, context_docs)
-    start = time.time()
-    result = client._call(messages)
-    latency = time.time() - start
-    usage = result.get("usage", {}) or {}
-    return {
-        "response": result.get("content", ""),
-        "tokens": {
-            "input": usage.get("prompt_tokens", 0),
-            "output": usage.get("completion_tokens", 0),
-            "total": usage.get("total_tokens", 0),
-        },
-        "latency": latency,
-    }

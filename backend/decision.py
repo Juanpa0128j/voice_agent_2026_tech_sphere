@@ -209,45 +209,6 @@ def decide_from_text(text: str) -> Dict[str, Any]:
     }
 
 
-def decide(summary: Dict[str, Any]) -> Dict[str, Any]:
-    """Decide severity from a summary dict.
-
-    `summary` may contain:
-        - 'transcript' (str): raw call text -> keyword scoring
-        - 'structured' (dict): extracted symptoms -> field-based scoring
-        If both, 'structured' takes precedence.
-
-    Returns: {label, score, rationale, alert (bool)}
-    """
-    if not isinstance(summary, dict):
-        return {"label": "verde", "score": 0, "rationale": "summary inválido", "alert": False}
-
-    structured = summary.get("structured")
-    if isinstance(structured, dict) and structured:
-        score = _score_from_structured(structured)
-        label = severity_from_score(score)
-        return {
-            "label": label,
-            "score": score,
-            "rationale": _rationale_from_structured(structured),
-            "alert": label in ("amarillo", "rojo"),
-        }
-
-    text = summary.get("transcript", "") or ""
-    return decide_from_text(text)
-
-
-def attach_provenance(response: str, sources: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Wrap a textual response with provenance metadata.
-
-    sources: list of {id: str, path: str, excerpt: str}
-    """
-    return {
-        "response": response,
-        "provenance": sources,
-    }
-
-
 class DecisionEngine:
     """Adapter class exposing the .decide() interface used by api_app.py.
 
