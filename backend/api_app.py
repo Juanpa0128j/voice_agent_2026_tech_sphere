@@ -118,6 +118,7 @@ class AssistResponse(BaseModel):
     response: str
     decision: Dict[str, Any] = Field(default_factory=dict)
     retrieval: List[Dict[str, Any]] = Field(default_factory=list)
+    patient: Optional[Dict[str, Any]] = None
 
 
 class SummaryRequest(BaseModel):
@@ -404,6 +405,23 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         logger.warning("Decision engine failed: %s", exc)
         decision_payload = {"action": "respond", "reason": "fallback"}
 
+    patient_payload: Optional[Dict[str, Any]] = None
+    if req.paciente_id:
+        try:
+            from backend.patient_context import load_patient_context
+            ctx = load_patient_context(req.paciente_id)
+            if ctx is not None:
+                patient_payload = {
+                    "paciente_id": ctx.paciente_id,
+                    "nombre": ctx.nombre,
+                    "procedimiento": ctx.procedimiento,
+                    "dia_postoperatorio": ctx.dia_postoperatorio,
+                    "comorbilidades": ctx.comorbilidades,
+                    "eps": ctx.eps,
+                }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("patient_context load failed: %s", exc)
+
     if conversation is not None and not is_greeting:
         try:
             conversation.append(call_id, transcript, response_text, decision_payload)
@@ -423,6 +441,7 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         "response": response_text,
         "decision": decision_payload,
         "retrieval": retrieval,
+        "patient": patient_payload,
     }
 
 
