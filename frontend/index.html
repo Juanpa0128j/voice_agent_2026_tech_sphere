@@ -679,8 +679,13 @@
             await speak(response);
           }
           if (decision) {
-            setDecision(decision.level || decision.color || decision);
-            if (decision.note) toast(decision.note, "info");
+            // decision may be a string ("rojo") or an object ({label, score, ...})
+            const lvl = (typeof decision === "string")
+              ? decision
+              : (decision.level || decision.color || decision.label || "");
+            setDecision(lvl);
+            const rationale = decision.rationale || decision.reason || decision.note;
+            if (rationale) toast(rationale, lvl === "rojo" ? "error" : (lvl === "amarillo" ? "warn" : "info"));
           } else if (data && data.decision_label) {
             setDecision(data.decision_label);
           }

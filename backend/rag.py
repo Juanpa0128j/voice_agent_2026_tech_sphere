@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Dict, List
 
 import chromadb
@@ -44,8 +45,12 @@ class RAGStore:
         if ids:
             self._collection.add(ids=ids, documents=texts, metadatas=metadatas)
 
-    def delete_document(self, doc_id: str) -> None:
+    def delete_document(self, doc_id: str) -> bool:
+        existing = self._collection.get(include=[], where={"doc_id": doc_id})
+        if not existing.get("ids"):
+            return False
         self._collection.delete(where={"doc_id": doc_id})
+        return True
 
     def query(self, query_text: str, k: int = 5) -> List[Dict]:
         if self._collection.count() == 0:
@@ -79,15 +84,18 @@ def retrieve_context(
 
 def _list_documents(self):
     try:
-        results = self.collection.get(include=["metadatas"])
+        results = self._collection.get(include=["metadatas"])
         seen = {}
         for mid, meta in zip(results.get("ids", []), results.get("metadatas", [])):
-            doc_id = (meta or {}).get("doc_id", mid)
-            if doc_id not in seen:
-                seen[doc_id] = {
-                    "doc_id": doc_id,
-                    "source": (meta or {}).get("source", doc_id),
-                    "name": (meta or {}).get("name", doc_id),
+            meta = meta or {}
+            # Group chunks by source (e.g. "Appendicitis/foo.pdf") so one doc
+            # in the corpus = one row in the admin list
+            source = meta.get("source", mid)
+            if source not in seen:
+                seen[source] = {
+                    "doc_id": source,
+                    "source": source,
+                    "name": Path(source).name if "/" in source else source,
                 }
         return list(seen.values())
     except Exception:
@@ -100,11 +108,14 @@ def _retrieve_facade(self, query_text: str, k: int = 5):
 
 def _add_document_facade(self, doc_id: str, text: str, metadata: dict = None):
     meta = metadata or {}
-    return self.add_documents([{
+    self.add_documents([{
         "id": doc_id,
         "text": text,
         "source": meta.get("source", doc_id),
+        "doc_id": doc_id,
+        "name": meta.get("filename", doc_id),
     }])
+    return doc_id
 
 
 RAGStore.list_documents = _list_documents

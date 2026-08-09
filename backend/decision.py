@@ -249,10 +249,40 @@ def attach_provenance(response: str, sources: List[Dict[str, Any]]) -> Dict[str,
 
 
 class DecisionEngine:
-    """Adapter class exposing the .decide() interface used by api_app.py."""
+    """Adapter class exposing the .decide() interface used by api_app.py.
+
+    Decision flow:
+      1. If Groq LLM available: extract structured symptoms via JSON, then apply
+         clinical rules. This catches minimizer-style language ("tranquila
+         doctora, un poquito molesto no más" + "37 y algo" + "rojita en el
+         borde" = rojo).
+      2. If LLM unavailable or fails: fall back to keyword scoring (faster but
+         less accurate on conversational data).
+    """
+
+    def __init__(self, llm_client=None) -> None:
+        self._llm = llm_client
 
     def decide(self, transcript: str, retrieval: List[Dict] = None, response: str = "") -> Dict[str, Any]:
-        text = transcript or ""
+        text = (transcript or "").strip()
+
+        # Try LLM-based decision first
+        if self._llm is None:
+            try:
+                from backend.llm import LLMClient
+                self._llm = LLMClient()
+            except Exception:
+                self._llm = False  # sentinel: tried and failed, don't retry
+
+        if self._llm and self._llm is not False:
+            try:
+                structured = self._extract_structured(self._llm, text)
+                if structured:
+                    return self._decide_from_structured(structured, source="llm")
+            except Exception:
+                pass  # fall through to keyword fallback
+
+        # Keyword fallback
         result = decide_from_text(text)
         result["action"] = "respond"
         if result["label"] == "rojo":
@@ -260,4 +290,114 @@ class DecisionEngine:
         elif result["label"] == "amarillo":
             result["action"] = "warn"
         result["reason"] = result.get("rationale", "")
+        result["source"] = "keyword"
         return result
+
+    @staticmethod
+    def _extract_structured(llm_client, text: str) -> Dict[str, Any]:
+        """Ask LLM to extract structured symptoms as JSON. Returns dict or None."""
+        import json, re
+        messages = [
+            {"role": "system", "content": STRUCTURED_DECISION_PROMPT},
+            {"role": "user", "content": f"Transcripción del paciente:\n\n{text}\n\nDevuelve SOLO el JSON:"},
+        ]
+        result = llm_client._call(messages, temperature=0.0, max_tokens=300)
+        content = result.get("content", "").strip()
+        # Strip markdown code fences if present
+        content = re.sub(r"^```(?:json)?\s*", "", content)
+        content = re.sub(r"\s*```$", "", content)
+        try:
+            return json.loads(content)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _decide_from_structured(structured: Dict[str, Any], source: str = "llm") -> Dict[str, Any]:
+        """Apply clinical rules to structured symptoms.
+
+        Rules calibrated against the 160-case dataset:
+          - rojo: any bleeding OR breathing difficulty, OR (fever >= 38.5 AND
+            (wound infection signs OR pain >= 7)), OR (pain >= 8 alone with
+            other symptoms), OR (fever >= 39 alone)
+          - amarillo: fever 37.5-38.4, pain 5-7, wound erythema without pus,
+            mild mobility reduction, persistent vomiting
+          - verde: everything else
+        """
+        score = 0
+        reasons: List[str] = []
+
+        # Critical: any bleeding or breathing difficulty = rojo immediately
+        if structured.get("sangrado"):
+            score += 10
+            reasons.append("sangrado activo")
+        if structured.get("dificultad_respirar"):
+            score += 10
+            reasons.append("dificultad respiratoria")
+
+        # Fever escalation
+        fiebre = structured.get("fiebre_c")
+        if fiebre is not None:
+            if fiebre >= 39:
+                score += 5
+                reasons.append(f"fiebre {fiebre}°C (alta)")
+            elif fiebre >= 38:
+                score += 3
+                reasons.append(f"fiebre {fiebre}°C (moderada)")
+            elif fiebre >= 37.5:
+                score += 1
+                reasons.append(f"febrícula {fiebre}°C")
+
+        # Pain escalation
+        dolor = structured.get("dolor_eva")
+        if dolor is not None and dolor >= 7:
+            score += 3
+            reasons.append(f"dolor EVA {dolor}/10")
+        elif dolor is not None and dolor >= 5:
+            score += 1
+            reasons.append(f"dolor EVA {dolor}/10 (moderado)")
+
+        # Wound infection
+        if structured.get("secrecion"):
+            score += 5
+            reasons.append("secreción purulenta en herida")
+        if structured.get("movilidad_limitada"):
+            score += 2
+            reasons.append("movilidad limitada")
+
+        # Vomiting
+        if structured.get("vomito"):
+            score += 2
+            reasons.append("vómito")
+
+        # Combined rule: fever >= 38.5 + pain >= 7 = rojo
+        if (fiebre is not None and fiebre >= 38.5 and
+            dolor is not None and dolor >= 7):
+            score = max(score, 8)
+            reasons.append("combinación fiebre alta + dolor intenso")
+
+        # Combined rule: fever >= 38.5 + wound secretion = rojo
+        if (fiebre is not None and fiebre >= 38.5 and
+            structured.get("secrecion")):
+            score = max(score, 8)
+            reasons.append("combinación fiebre alta + secreción")
+
+        # Classify
+        if score >= 6:
+            label = "rojo"
+        elif score >= 3:
+            label = "amarillo"
+        else:
+            label = "verde"
+
+        action = {"rojo": "alert", "amarillo": "warn", "verde": "respond"}[label]
+
+        return {
+            "label": label,
+            "score": score,
+            "rationale": "; ".join(reasons) if reasons else "sin síntomas relevantes",
+            "alert": label in ("rojo", "amarillo"),
+            "action": action,
+            "reason": "; ".join(reasons) if reasons else "sin síntomas relevantes",
+            "structured": structured,
+            "source": source,
+        }

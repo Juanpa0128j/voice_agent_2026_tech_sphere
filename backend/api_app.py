@@ -215,7 +215,7 @@ def get_admin_store() -> Any:
     global _admin_store
     if _admin_store is None:
         store = get_rag_store()
-        if store is not None:
+        if store is not None and store is not _UNAVAILABLE:
             _admin_store = store
             return _admin_store
         _admin_store = _UNAVAILABLE
@@ -349,7 +349,10 @@ def metrics() -> Dict[str, Any]:
 
 @app.post("/api/summary")
 async def get_summary(req: SummaryRequest) -> Dict[str, Any]:
-    """Return the final summary for ``req.call_id``."""
+    """Return the final summary for ``req.call_id``.
+
+    Builds the summary from the conversation history if no saved summary exists.
+    """
     service = get_summary_service()
     if service is None:
         return JSONResponse(
@@ -359,7 +362,37 @@ async def get_summary(req: SummaryRequest) -> Dict[str, Any]:
     try:
         return service.summarize(req.call_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="call_id not found")
+        # No saved summary — try to build one from conversation history
+        conv = get_conversation_store()
+        if conv is None:
+            raise HTTPException(status_code=404, detail="call_id not found")
+        history = conv.history(req.call_id)
+        if not history:
+            raise HTTPException(status_code=404, detail="call_id not found")
+        from backend.summary import generate_summary, CallSummary
+        from datetime import datetime, timezone
+        turns = []
+        for h in history:
+            turns.append({"role": "user", "content": h.get("transcript", "")})
+            turns.append({"role": "assistant", "content": h.get("response", "")})
+        decision = history[-1].get("decision", {}) if history else {}
+        summary = generate_summary(
+            paciente_id="unknown",
+            nombre="",
+            procedimiento="",
+            dia_postoperatorio=0,
+            turns=turns,
+            decision=decision,
+            sources=[],
+        )
+        summary["call_id"] = req.call_id
+        summary["timestamp"] = datetime.now(timezone.utc).isoformat()
+        summary["duracion"] = "—"
+        summary["mensajes"] = len(turns)
+        service.save(summary)
+        return summary
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.warning("Summary failed: %s", exc)
         return JSONResponse(

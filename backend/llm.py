@@ -6,7 +6,9 @@ from groq import Groq
 
 
 class LLMClient:
-    def __init__(self, api_key: Optional[str] = None, model: str = "llama-3.3-70b-versatile"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+        if model is None:
+            model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
             raise ValueError(
@@ -16,21 +18,33 @@ class LLMClient:
         self.client = Groq(api_key=self.api_key)
 
     def _call(self, messages: List[Dict[str, Any]], **kwargs: Any) -> Dict[str, Any]:
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            **kwargs,
-        )
-        choice = response.choices[0]
-        usage = response.usage
-        return {
-            "content": choice.message.content,
-            "usage": {
-                "prompt_tokens": getattr(usage, "prompt_tokens", 0),
-                "completion_tokens": getattr(usage, "completion_tokens", 0),
-                "total_tokens": getattr(usage, "total_tokens", 0),
-            },
-        }
+        last_exc = None
+        for attempt in range(3):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    **kwargs,
+                )
+                choice = response.choices[0]
+                usage = response.usage
+                return {
+                    "content": choice.message.content,
+                    "usage": {
+                        "prompt_tokens": getattr(usage, "prompt_tokens", 0),
+                        "completion_tokens": getattr(usage, "completion_tokens", 0),
+                        "total_tokens": getattr(usage, "total_tokens", 0),
+                    },
+                }
+            except Exception as exc:
+                last_exc = exc
+                msg = str(exc).lower()
+                if "rate" in msg or "429" in msg or "limit" in msg:
+                    import time
+                    time.sleep(2 ** attempt)  # exponential backoff
+                    continue
+                raise
+        raise last_exc
 
     def chat(
         self,
