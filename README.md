@@ -2,10 +2,25 @@
 
 Agente de voz con IA para seguimiento postoperatorio. Construido para el [Tech Sphere Challenge 2026](https://sourcemeridian.com/tech-sphere-challenge).
 
-> **Live demo on Modal:** https://juanpa0128j--voice-agent.modal.run
-> End-to-end verified: STT → RAG (BGE-M3 + ChromaDB) → LLM (Groq Llama 3.1 8B Instant) → decision (verde/amarillo/rojo) → TTS, with persistent ChromaDB on a Modal Volume.
+## Demo
 
-## Quickstart
+- **Live demo (desplegado):** https://juanpa0128j--voice-agent.modal.run
+- **Video demo (YouTube unlisted):** https://youtu.be/PLACEHOLDER
+- **Diagrama de arquitectura:** [`docs/architecture-diagram.png`](docs/architecture-diagram.png)
+- **Informe final:** [`docs/informe-final.md`](docs/informe-final.md)
+
+> End-to-end verified: STT → RAG (BGE-M3 + ChromaDB) → LLM (Groq Llama 3.1 8B Instant) → decision (verde/amarillo/rojo) → TTS, con ChromaDB persistente en Modal Volume.
+
+## Modelo de lenguaje y voz (declaración explícita)
+
+- **LLM**: Groq + Llama 3.1 8B Instant (`llama-3.1-8b-instant`) — familia Meta Llama,
+  nivel gratuito de Groq. Default 3.3 70B excedía el límite TPD (100K tokens/día).
+- **Voz (STT + TTS)**: Web Speech API nativa del navegador, locale `es-CO` (español colombiano).
+  Sin dependencias de servidor. Chrome recomendado.
+- **Embeddings**: BAAI/bge-m3 (1024 dim, multilingüe).
+- **Vector DB**: ChromaDB PersistentClient, persistente en Modal Volume.
+
+## Quickstart (≤15 min)
 
 ### Option A — Modal (live demo, 1 command)
 
