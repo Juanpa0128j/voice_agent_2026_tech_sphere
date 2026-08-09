@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: voice-agent-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/chroma:/app/backend/chroma
+      - ./backend/calls:/app/backend/calls
+      - ./backend/metrics.json:/app/backend/metrics.json
+    restart: unless-stopped

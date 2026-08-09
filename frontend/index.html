@@ -2,62 +2,944 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Voice Agent Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Agente de seguimiento postoperatorio por voz">
+  <title>Agente de Seguimiento Postoperatorio</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #f0f4f9;
+      --border: #d9e2ec;
+      --text: #102a43;
+      --text-muted: #627d98;
+      --primary: #1f6feb;
+      --primary-hover: #1858c4;
+      --primary-soft: #e6efff;
+      --danger: #c53030;
+      --warn: #b7791f;
+      --ok: #2f855a;
+      --shadow: 0 1px 2px rgba(16, 42, 67, 0.06), 0 8px 24px rgba(16, 42, 67, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+    }
+    header.app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .sub {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .card + .card { margin-top: 16px; }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .pill[data-state="idle"] { color: var(--text-muted); }
+    .pill[data-state="listening"] { color: var(--primary); background: var(--primary-soft); border-color: #cfe0ff; }
+    .pill[data-state="procesando"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
+    .pill[data-state="hablando"] { color: var(--ok); background: #e6f6ec; border-color: #b9e3c7; }
+    .pill[data-state="error"] { color: var(--danger); background: #fdecec; border-color: #f5b7b7; }
+    .pill[data-state="silencio"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
+    .decision {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .decision .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .decision[data-level="verde"] { color: var(--ok); background: #e6f6ec; border-color: #b9e3c7; }
+    .decision[data-level="amarillo"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
+    .decision[data-level="rojo"] { color: var(--danger); background: #fdecec; border-color: #f5b7b7; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button {
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      padding: 12px 20px;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+    }
+    button:focus-visible {
+      outline: 3px solid #9ec2ff;
+      outline-offset: 2px;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 24px;
+      font-size: 16px;
+      box-shadow: 0 1px 2px rgba(31, 111, 235, 0.3), 0 6px 16px rgba(31, 111, 235, 0.18);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+    .btn-danger {
+      background: var(--surface);
+      color: var(--danger);
+      border-color: #f0c4c4;
+    }
+    .btn-danger:hover:not(:disabled) { background: #fdecec; }
+    .transcript-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .transcript-header h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .transcript {
+      min-height: 220px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scroll-behavior: smooth;
+    }
+    .bubble {
+      max-width: 82%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 15px;
+      line-height: 1.45;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.agent {
+      align-self: flex-start;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble .who {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 2px;
+    }
+    .transcript-empty {
+      color: var(--text-muted);
+      text-align: center;
+      padding: 32px 12px;
+      font-size: 14px;
+    }
+    .fallback {
+      margin-top: 16px;
+      padding: 16px;
+      background: #fff7e6;
+      border: 1px solid #f5d796;
+      border-radius: var(--radius-sm);
+    }
+    .fallback p { margin: 0 0 8px; font-size: 13px; color: var(--warn); }
+    .fallback textarea {
+      width: 100%;
+      min-height: 64px;
+      font-family: inherit;
+      font-size: 15px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      resize: vertical;
+    }
+    .fallback-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .toast-wrap {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: calc(100vw - 32px);
+    }
+    .toast {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      min-width: 240px;
+    }
+    .toast.info { border-left-color: var(--primary); }
+    .toast.ok { border-left-color: var(--ok); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 42, 67, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      max-width: 560px;
+      width: 100%;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(16, 42, 67, 0.25);
+    }
+    .modal header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal h2 { margin: 0; font-size: 17px; font-weight: 600; }
+    .modal .body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 15px;
+    }
+    .modal .body dl {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 16px;
+      margin: 0;
+    }
+    .modal .body dt { color: var(--text-muted); font-weight: 500; }
+    .modal .body dd { margin: 0; }
+    .modal .body .summary-text {
+      white-space: pre-wrap;
+      background: var(--surface-2);
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      margin-top: 12px;
+    }
+    .modal footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 6px 10px;
+      font-size: 18px;
+      color: var(--text-muted);
+      border-radius: 8px;
+    }
+    .icon-btn:hover { background: var(--surface-2); }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0);
+      white-space: nowrap; border: 0;
+    }
+    @media (max-width: 540px) {
+      .app { padding: 16px 12px 32px; }
+      .card { padding: 16px; }
+      h1 { font-size: 18px; }
+      .btn-primary { width: 100%; }
+      .controls { width: 100%; }
+      .controls .btn-primary,
+      .controls .btn-secondary,
+      .controls .btn-danger { flex: 1 1 auto; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Voice Agent (Demo)</h1>
-  <p>Status: <span id="status">idle</span></p>
-  <button id="startBtn">Start Call</button>
-  <button id="stopBtn" disabled>End Call</button>
-  <div>
-    <h3>Transcript</h3>
-    <pre id="transcript"></pre>
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">+</div>
+        <div>
+          <h1>Agente de Seguimiento Postoperatorio</h1>
+          <div class="sub">Demo de llamada automatizada — paciente P001</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="card" aria-labelledby="call-heading">
+      <h2 id="call-heading" class="sr-only">Controles de la llamada</h2>
+      <div class="status-row">
+        <span class="pill" id="status" data-state="idle" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="statusText">Inactivo</span>
+        </span>
+        <span class="decision" id="decisionBadge" data-level="" role="status" aria-live="polite">
+          <span class="swatch" aria-hidden="true"></span>
+          <span id="decisionText">Decisión: pendiente</span>
+        </span>
+      </div>
+      <div class="controls">
+        <button id="startBtn" class="btn-primary" type="button">Iniciar Llamada</button>
+        <button id="stopBtn" class="btn-danger" type="button" disabled>Finalizar Llamada</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="transcript-heading">
+      <div class="transcript-header">
+        <h2 id="transcript-heading">Transcripción en vivo</h2>
+        <span class="sub" id="callMeta"></span>
+      </div>
+      <div class="transcript" id="transcript" aria-live="polite" aria-atomic="false"></div>
+
+      <div id="fallback" class="fallback" hidden>
+        <p>Tu navegador no soporta reconocimiento de voz. Escribe tu respuesta y envíala manualmente.</p>
+        <label class="sr-only" for="fallbackText">Mensaje para el agente</label>
+        <textarea id="fallbackText" placeholder="Escribe tu respuesta aquí..."></textarea>
+        <div class="fallback-row">
+          <button id="fallbackSend" class="btn-primary" type="button">Enviar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="admin-link-heading">
+      <h2 id="admin-link-heading" class="sr-only">Enlace a administración</h2>
+      <div class="status-row">
+        <span class="sub">¿Necesitas administrar la base de conocimiento?</span>
+        <a class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center" href="admin.html">Ir a la consola</a>
+      </div>
+    </section>
   </div>
+
+  <div class="toast-wrap" id="toasts" aria-live="assertive" aria-atomic="false"></div>
+
+  <div class="modal-backdrop" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" hidden>
+    <div class="modal">
+      <header>
+        <h2 id="summaryTitle">Resumen de la llamada</h2>
+        <button class="icon-btn" type="button" id="closeSummary" aria-label="Cerrar resumen">&times;</button>
+      </header>
+      <div class="body" id="summaryBody">
+        <p>Cargando resumen...</p>
+      </div>
+      <footer>
+        <button class="btn-primary" type="button" id="okSummary">Aceptar</button>
+      </footer>
+    </div>
+  </div>
+
   <script>
-    const statusEl = document.getElementById('status')
-    const startBtn = document.getElementById('startBtn')
-    const stopBtn = document.getElementById('stopBtn')
-    const transcriptEl = document.getElementById('transcript')
+    (function () {
+      "use strict";
 
-    let recognition
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      statusEl.textContent = 'Speech Recognition not supported in this browser (use Chrome).'
-      startBtn.disabled = true
-    } else {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-      recognition = new SR()
-      recognition.lang = 'es-CO'
-      recognition.interimResults = true
-      recognition.onstart = () => { statusEl.textContent = 'listening' }
-      recognition.onend = () => { statusEl.textContent = 'idle'; stopBtn.disabled=true; startBtn.disabled=false }
-      recognition.onresult = (ev) => {
-        let text = ''
-        for (let i=0;i<ev.results.length;i++) {
-          text += ev.results[i][0].transcript
+      const PATIENT_ID = "P001";
+      const SILENCE_MS = 10000;
+      const SILENCE_PROMPT = "¿Sigues ahí?";
+
+      const STATUS_LABELS = {
+        idle: "Inactivo",
+        starting: "Conectando...",
+        listening: "Escuchando...",
+        procesando: "Procesando...",
+        hablando: "Hablando...",
+        silencio: "Sin respuesta",
+        error: "Error",
+        ended: "Llamada finalizada"
+      };
+
+      const DECISION_LABELS = {
+        verde: "Decisión: verde",
+        amarillo: "Decisión: amarillo",
+        rojo: "Decisión: rojo"
+      };
+
+      const els = {
+        startBtn: document.getElementById("startBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        status: document.getElementById("status"),
+        statusText: document.getElementById("statusText"),
+        decision: document.getElementById("decisionBadge"),
+        decisionText: document.getElementById("decisionText"),
+        transcript: document.getElementById("transcript"),
+        callMeta: document.getElementById("callMeta"),
+        fallback: document.getElementById("fallback"),
+        fallbackText: document.getElementById("fallbackText"),
+        fallbackSend: document.getElementById("fallbackSend"),
+        toasts: document.getElementById("toasts"),
+        summaryModal: document.getElementById("summaryModal"),
+        summaryBody: document.getElementById("summaryBody"),
+        closeSummary: document.getElementById("closeSummary"),
+        okSummary: document.getElementById("okSummary")
+      };
+
+      const state = {
+        callId: null,
+        inCall: false,
+        busy: false,
+        speaking: false,
+        recognition: null,
+        sttSupported: false,
+        silenceTimer: null,
+        currentDecision: ""
+      };
+
+      function uuidv4() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return window.crypto.randomUUID();
         }
-        transcriptEl.textContent = text
+        const bytes = new Uint8Array(16);
+        if (window.crypto && window.crypto.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0"));
+        return (
+          hex.slice(0, 4).join("") + "-" +
+          hex.slice(4, 6).join("") + "-" +
+          hex.slice(6, 8).join("") + "-" +
+          hex.slice(8, 10).join("") + "-" +
+          hex.slice(10, 16).join("")
+        );
       }
-    }
 
-    startBtn.onclick = () => {
-      recognition.start()
-      startBtn.disabled = true
-      stopBtn.disabled = false
-      statusEl.textContent = 'starting'
-    }
-    stopBtn.onclick = () => {
-      recognition.stop()
-    }
+      function setStatus(stateName) {
+        els.status.setAttribute("data-state", stateName);
+        els.statusText.textContent = STATUS_LABELS[stateName] || stateName;
+      }
 
-    // Simple TTS helper
-    function speak(text) {
-      if (!('speechSynthesis' in window)) return
-      const u = new SpeechSynthesisUtterance(text)
-      u.lang = 'es-CO'
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(u)
-    }
+      function setDecision(level, label) {
+        const lvl = (level || "").toLowerCase();
+        if (!lvl) {
+          els.decision.setAttribute("data-level", "");
+          els.decisionText.textContent = "Decisión: pendiente";
+          return;
+        }
+        els.decision.setAttribute("data-level", lvl);
+        els.decisionText.textContent = label || DECISION_LABELS[lvl] || ("Decisión: " + lvl);
+        state.currentDecision = lvl;
+      }
+
+      function toast(message, kind) {
+        const el = document.createElement("div");
+        el.className = "toast" + (kind ? " " + kind : "");
+        el.textContent = message;
+        els.toasts.appendChild(el);
+        setTimeout(() => {
+          el.style.opacity = "0";
+          el.style.transition = "opacity 0.3s ease";
+          setTimeout(() => el.remove(), 300);
+        }, 4500);
+      }
+
+      function appendBubble(role, text) {
+        const empty = els.transcript.querySelector(".transcript-empty");
+        if (empty) empty.remove();
+        const wrap = document.createElement("div");
+        wrap.className = "bubble " + role;
+        const who = document.createElement("span");
+        who.className = "who";
+        who.textContent = role === "user" ? "Tú" : "Agente";
+        const body = document.createElement("span");
+        body.textContent = text;
+        wrap.appendChild(who);
+        wrap.appendChild(body);
+        els.transcript.appendChild(wrap);
+        els.transcript.scrollTop = els.transcript.scrollHeight;
+      }
+
+      function setTranscriptEmpty(message) {
+        els.transcript.innerHTML = "";
+        const empty = document.createElement("div");
+        empty.className = "transcript-empty";
+        empty.textContent = message;
+        els.transcript.appendChild(empty);
+      }
+
+      function speak(text) {
+        if (!("speechSynthesis" in window)) {
+          return Promise.resolve();
+        }
+        return new Promise(resolve => {
+          try {
+            window.speechSynthesis.cancel();
+          } catch (_) {}
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = "es-CO";
+          u.rate = 1;
+          u.pitch = 1;
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          u.onend = done;
+          u.onerror = done;
+          state.speaking = true;
+          setStatus("hablando");
+          window.speechSynthesis.speak(u);
+          setTimeout(done, Math.max(2000, text.length * 80));
+        });
+      }
+
+      function cancelSpeech() {
+        if ("speechSynthesis" in window) {
+          try { window.speechSynthesis.cancel(); } catch (_) {}
+        }
+        state.speaking = false;
+      }
+
+      function clearSilenceTimer() {
+        if (state.silenceTimer) {
+          clearTimeout(state.silenceTimer);
+          state.silenceTimer = null;
+        }
+      }
+
+      function armSilenceTimer() {
+        clearSilenceTimer();
+        if (!state.inCall) return;
+        state.silenceTimer = setTimeout(onSilenceTimeout, SILENCE_MS);
+      }
+
+      function onSilenceTimeout() {
+        state.silenceTimer = null;
+        if (!state.inCall || state.busy || state.speaking) return;
+        setStatus("silencio");
+        speak(SILENCE_PROMPT).finally(() => {
+          if (state.inCall && !state.busy) {
+            startListening();
+          }
+        });
+      }
+
+      function startListening() {
+        if (!state.recognition) return;
+        if (state.busy || state.speaking) return;
+        try {
+          state.recognition.start();
+        } catch (_) {}
+      }
+
+      function stopRecognitionSafe() {
+        if (state.recognition) {
+          try { state.recognition.stop(); } catch (_) {}
+        }
+      }
+
+      async function sendToAgent(transcript) {
+        const res = await fetch("/api/assist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transcript: transcript,
+            paciente_id: PATIENT_ID,
+            call_id: state.callId
+          })
+        });
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = (j && (j.detail || j.error)) || "";
+          } catch (_) {}
+          throw new Error("El agente no pudo responder (HTTP " + res.status + (detail ? ": " + detail : "") + ")");
+        }
+        return res.json();
+      }
+
+      async function handleUserTurn(text) {
+        const clean = (text || "").trim();
+        if (!clean) return;
+        if (!state.inCall) return;
+        clearSilenceTimer();
+        state.busy = true;
+        setStatus("procesando");
+        appendBubble("user", clean);
+        try {
+          const data = await sendToAgent(clean);
+          const response = (data && (data.response || data.answer || data.text)) || "";
+          const decision = (data && data.decision) || "";
+          const sources = Array.isArray(data && data.sources) ? data.sources : [];
+          if (response) {
+            appendBubble("agent", response);
+            await speak(response);
+          }
+          if (decision) {
+            // decision may be a string ("rojo") or an object ({label, score, ...})
+            const lvl = (typeof decision === "string")
+              ? decision
+              : (decision.level || decision.color || decision.label || "");
+            setDecision(lvl);
+            const rationale = decision.rationale || decision.reason || decision.note;
+            if (rationale) toast(rationale, lvl === "rojo" ? "error" : (lvl === "amarillo" ? "warn" : "info"));
+          } else if (data && data.decision_label) {
+            setDecision(data.decision_label);
+          }
+          if (sources.length) {
+            const srcs = sources.map(s => s.name || s.title || s.id).filter(Boolean).join(", ");
+            if (srcs) {
+              const meta = document.createElement("div");
+              meta.className = "sub";
+              meta.style.marginTop = "4px";
+              meta.textContent = "Fuentes: " + srcs;
+              const last = els.transcript.lastElementChild;
+              if (last) last.appendChild(meta);
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          toast(err && err.message ? err.message : "Error de comunicación con el agente", "error");
+          appendBubble("agent", "Disculpa, hubo un problema al procesar tu respuesta. Intentemos de nuevo.");
+        } finally {
+          state.busy = false;
+          state.speaking = false;
+          if (state.inCall) {
+            setStatus("listening");
+            startListening();
+            armSilenceTimer();
+          } else {
+            setStatus("ended");
+          }
+        }
+      }
+
+      function initRecognition() {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+          state.sttSupported = false;
+          els.fallback.hidden = false;
+          return null;
+        }
+        state.sttSupported = true;
+        const rec = new SR();
+        rec.lang = "es-CO";
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+
+        rec.onstart = () => {
+          if (!state.inCall) return;
+          setStatus("listening");
+          armSilenceTimer();
+        };
+        rec.onresult = (ev) => {
+          clearSilenceTimer();
+          let text = "";
+          if (ev.results && ev.results.length) {
+            text = ev.results[0][0].transcript || "";
+          }
+          if (text) handleUserTurn(text);
+        };
+        rec.onerror = (ev) => {
+          clearSilenceTimer();
+          const err = ev && ev.error;
+          if (err === "no-speech" || err === "aborted") {
+            if (state.inCall && !state.busy && !state.speaking) {
+              armSilenceTimer();
+              setStatus("listening");
+            }
+            return;
+          }
+          if (err === "not-allowed" || err === "service-not-allowed") {
+            toast("Permiso de micrófono denegado. Puedes escribir tu respuesta abajo.", "error");
+            els.fallback.hidden = false;
+            setStatus("error");
+            return;
+          }
+          toast("Error de reconocimiento de voz: " + err, "error");
+        };
+        rec.onend = () => {
+          clearSilenceTimer();
+          if (state.inCall && !state.busy && !state.speaking) {
+            startListening();
+          }
+        };
+        return rec;
+      }
+
+      async function startCall() {
+        if (state.inCall) return;
+        cancelSpeech();
+        state.callId = uuidv4();
+        state.inCall = true;
+        state.busy = false;
+        state.speaking = false;
+        els.startBtn.disabled = true;
+        els.stopBtn.disabled = false;
+        els.fallbackText.value = "";
+        setTranscriptEmpty("La conversación aparecerá aquí cuando inicies la llamada.");
+        setDecision("");
+        els.callMeta.textContent = "Llamada: " + state.callId;
+        setStatus("starting");
+        try {
+          const greeting = await fetch("/api/assist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transcript: "",
+              paciente_id: PATIENT_ID,
+              call_id: state.callId,
+              greeting: true
+            })
+          });
+          if (greeting.ok) {
+            const data = await greeting.json();
+            const response = (data && (data.response || data.answer || data.text)) || "";
+            if (response) {
+              appendBubble("agent", response);
+              await speak(response);
+            }
+          }
+        } catch (err) {
+          console.warn("Saludo no disponible, continuando.", err);
+        }
+        state.speaking = false;
+        if (state.inCall) {
+          setStatus("listening");
+          startListening();
+          armSilenceTimer();
+        }
+      }
+
+      async function endCall() {
+        if (!state.inCall) return;
+        state.inCall = false;
+        clearSilenceTimer();
+        stopRecognitionSafe();
+        cancelSpeech();
+        els.startBtn.disabled = false;
+        els.stopBtn.disabled = true;
+        setStatus("ended");
+        openSummary();
+        try {
+          const res = await fetch("/api/summary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ call_id: state.callId, paciente_id: PATIENT_ID })
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          renderSummary(data);
+        } catch (err) {
+          console.error(err);
+          els.summaryBody.innerHTML = "";
+          const p = document.createElement("p");
+          p.textContent = "No se pudo obtener el resumen del servidor. La conversación se ha guardado localmente.";
+          els.summaryBody.appendChild(p);
+          const pre = document.createElement("div");
+          pre.className = "summary-text";
+          const bubbles = els.transcript.querySelectorAll(".bubble");
+          const lines = [];
+          bubbles.forEach(b => {
+            const who = b.querySelector(".who") ? b.querySelector(".who").textContent : "";
+            const body = b.querySelector("span:last-child") ? b.querySelector("span:last-child").textContent : b.textContent;
+            lines.push(who + ": " + body);
+          });
+          pre.textContent = lines.join("\n") || "(sin contenido)";
+          els.summaryBody.appendChild(pre);
+        }
+      }
+
+      function renderSummary(data) {
+        els.summaryBody.innerHTML = "";
+        const dl = document.createElement("dl");
+        const fields = [
+          ["Paciente", data.paciente_id || data.paciente || PATIENT_ID],
+          ["Llamada", data.call_id || state.callId],
+          ["Decisión final", data.decision_final || data.decision || state.currentDecision || "—"],
+          ["Duración", data.duracion || data.duration || "—"],
+          ["Mensajes", data.mensajes != null ? data.mensajes : els.transcript.querySelectorAll(".bubble").length]
+        ];
+        fields.forEach(([k, v]) => {
+          const dt = document.createElement("dt");
+          dt.textContent = k;
+          const dd = document.createElement("dd");
+          dd.textContent = String(v);
+          dl.appendChild(dt);
+          dl.appendChild(dd);
+        });
+        els.summaryBody.appendChild(dl);
+        if (data.resumen || data.summary) {
+          const t = document.createElement("div");
+          t.className = "summary-text";
+          t.textContent = data.resumen || data.summary;
+          els.summaryBody.appendChild(t);
+        }
+        if (data.recomendaciones) {
+          const h = document.createElement("p");
+          h.style.marginTop = "16px";
+          h.style.fontWeight = "600";
+          h.textContent = "Recomendaciones";
+          els.summaryBody.appendChild(h);
+          const ul = document.createElement("ul");
+          const arr = Array.isArray(data.recomendaciones) ? data.recomendaciones : [data.recomendaciones];
+          arr.forEach(r => {
+            const li = document.createElement("li");
+            li.textContent = r;
+            ul.appendChild(li);
+          });
+          els.summaryBody.appendChild(ul);
+        }
+      }
+
+      function openSummary() {
+        els.summaryModal.hidden = false;
+        els.summaryModal.classList.add("open");
+        setTimeout(() => els.okSummary.focus(), 30);
+      }
+      function closeSummary() {
+        els.summaryModal.classList.remove("open");
+        els.summaryModal.hidden = true;
+      }
+
+      function bindEvents() {
+        els.startBtn.addEventListener("click", startCall);
+        els.stopBtn.addEventListener("click", endCall);
+        els.fallbackSend.addEventListener("click", () => {
+          const v = els.fallbackText.value;
+          els.fallbackText.value = "";
+          handleUserTurn(v);
+        });
+        els.fallbackText.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            els.fallbackSend.click();
+          }
+        });
+        els.closeSummary.addEventListener("click", closeSummary);
+        els.okSummary.addEventListener("click", closeSummary);
+        els.summaryModal.addEventListener("click", (e) => {
+          if (e.target === els.summaryModal) closeSummary();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && !els.summaryModal.hidden) closeSummary();
+        });
+      }
+
+      function init() {
+        state.recognition = initRecognition();
+        bindEvents();
+        setTranscriptEmpty("La conversación aparecerá aquí cuando inicies la llamada.");
+        setStatus("idle");
+        setDecision("");
+      }
+
+      init();
+    })();
   </script>
 </body>
 </html>

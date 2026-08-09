@@ -1,0 +1,18 @@
+{
+  "capa1_limpia": {
+    "total": 160,
+    "accuracy": 0.7625,
+    "recall_rojo": 0.75,
+    "recall_amarillo": 0.2,
+    "recall_verde": 0.8780487804878049,
+    "time_seconds": 485.17986965179443
+  },
+  "capa2_ruidosa": {
+    "total": 160,
+    "accuracy": 0.36875,
+    "recall_rojo": 0.4166666666666667,
+    "recall_amarillo": 0.4,
+    "recall_verde": 0.35772357723577236,
+    "time_seconds": 31.61428427696228
+  }
+}
