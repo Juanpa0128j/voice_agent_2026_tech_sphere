@@ -4,26 +4,30 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="Agente de seguimiento postoperatorio por voz">
-  <title>Agente de Seguimiento Postoperatorio</title>
+  <meta name="description" content="Agente de voz para seguimiento postoperatorio">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d9488'/%3E%3Cpath d='M10 5h4v5h5v4h-5v5h-4v-5H5v-4h5z' fill='white'/%3E%3C/svg%3E">
+  <title>MediCol — Seguimiento Postoperatorio</title>
   <style>
     :root {
-      --bg: #f4f7fb;
+      --bg: #f2f7f7;
       --surface: #ffffff;
-      --surface-2: #f0f4f9;
-      --border: #d9e2ec;
-      --text: #102a43;
-      --text-muted: #627d98;
-      --primary: #1f6feb;
-      --primary-hover: #1858c4;
-      --primary-soft: #e6efff;
+      --surface-2: #eef5f5;
+      --border: #d8e5e5;
+      --text: #0f2a33;
+      --text-muted: #5b7a83;
+      --primary: #0d9488;
+      --primary-dark: #0b7d72;
+      --primary-soft: #d9f2ef;
       --danger: #c53030;
+      --danger-soft: #fdecec;
       --warn: #b7791f;
+      --warn-soft: #fdf3e2;
       --ok: #2f855a;
-      --shadow: 0 1px 2px rgba(16, 42, 67, 0.06), 0 8px 24px rgba(16, 42, 67, 0.06);
-      --radius: 14px;
-      --radius-sm: 8px;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+      --ok-soft: #e8f6ee;
+      --shadow: 0 1px 2px rgba(15, 42, 51, .05), 0 10px 28px rgba(15, 42, 51, .07);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
@@ -32,336 +36,168 @@
       color: var(--text);
       background: var(--bg);
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.55;
       -webkit-font-smoothing: antialiased;
     }
-    .app {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 24px 20px 40px;
-    }
+    .app { max-width: 860px; margin: 0 auto; padding: 24px 18px 48px; }
+
     header.app-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .brand { display: flex; align-items: center; gap: 12px; }
     .brand-mark {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      display: grid;
-      place-items: center;
-      font-weight: 700;
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--primary); display: grid; place-items: center; flex: none;
     }
-    h1 {
-      font-size: 20px;
-      margin: 0;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-    .sub {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
+    .brand-mark svg { width: 24px; height: 24px; }
+    h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+    .sub { color: var(--text-muted); font-size: 13px; }
+
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px;
     }
     .card + .card { margin-top: 16px; }
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
+
+    /* Status + decision */
+    .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 500;
-      background: var(--surface-2);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+      background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
     }
-    .pill .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
+    .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .pill[data-state="listening"] { background: var(--ok-soft); color: var(--ok); border-color: #bfe3cf; }
+    .pill[data-state="listening"] .dot { animation: pulse 1.1s ease-in-out infinite; }
+    .pill[data-state="speaking"] { background: var(--primary-soft); color: var(--primary-dark); border-color: #b6e4de; }
+    .pill[data-state="processing"] { background: var(--warn-soft); color: var(--warn); border-color: #eed9ae; }
+    .pill[data-state="processing"] .dot { animation: pulse 0.8s ease-in-out infinite; }
+    .pill[data-state="error"] { background: var(--danger-soft); color: var(--danger); border-color: #f2c9c9; }
+    @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .45; transform: scale(.75);} }
+
+    .severity { margin-top: 14px; }
+    .severity-track {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
     }
-    .pill[data-state="idle"] { color: var(--text-muted); }
-    .pill[data-state="listening"] { color: var(--primary); background: var(--primary-soft); border-color: #cfe0ff; }
-    .pill[data-state="procesando"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
-    .pill[data-state="hablando"] { color: var(--ok); background: #e6f6ec; border-color: #b9e3c7; }
-    .pill[data-state="error"] { color: var(--danger); background: #fdecec; border-color: #f5b7b7; }
-    .pill[data-state="silencio"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
-    .decision {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      background: var(--surface-2);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
+    .severity-seg {
+      text-align: center; padding: 8px 6px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600; letter-spacing: .02em;
+      background: var(--surface-2); color: var(--text-muted);
+      border: 1px solid var(--border); transition: all .25s ease;
     }
-    .decision .swatch {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: currentColor;
+    .severity-seg.active[data-level="verde"] { background: var(--ok); color: #fff; border-color: var(--ok); }
+    .severity-seg.active[data-level="amarillo"] { background: var(--warn); color: #fff; border-color: var(--warn); }
+    .severity-seg.active[data-level="rojo"] { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .severity-rationale {
+      margin-top: 8px; font-size: 12.5px; color: var(--text-muted); min-height: 1.2em;
     }
-    .decision[data-level="verde"] { color: var(--ok); background: #e6f6ec; border-color: #b9e3c7; }
-    .decision[data-level="amarillo"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
-    .decision[data-level="rojo"] { color: var(--danger); background: #fdecec; border-color: #f5b7b7; }
-    .controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-top: 16px;
-    }
+
+    .controls { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
     button {
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 600;
-      border-radius: 12px;
-      border: 1px solid transparent;
-      padding: 12px 20px;
-      cursor: pointer;
-      transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+      font: inherit; font-weight: 600; border-radius: var(--radius-sm);
+      padding: 11px 20px; border: 1px solid transparent; cursor: pointer;
+      transition: background .15s ease, transform .05s ease;
     }
-    button:focus-visible {
-      outline: 3px solid #9ec2ff;
-      outline-offset: 2px;
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-danger { background: #fff; color: var(--danger); border-color: #eecaca; }
+    .btn-danger:hover:not(:disabled) { background: var(--danger-soft); }
+    .btn-ghost { background: transparent; color: var(--primary-dark); border-color: var(--border); }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+
+    /* Chat */
+    .section-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 10px; gap: 10px; flex-wrap: wrap;
     }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      padding: 14px 24px;
-      font-size: 16px;
-      box-shadow: 0 1px 2px rgba(31, 111, 235, 0.3), 0 6px 16px rgba(31, 111, 235, 0.18);
-    }
-    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-    .btn-primary:active:not(:disabled) { transform: translateY(1px); }
-    .btn-secondary {
-      background: var(--surface);
-      color: var(--text);
-      border-color: var(--border);
-    }
-    .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
-    .btn-danger {
-      background: var(--surface);
-      color: var(--danger);
-      border-color: #f0c4c4;
-    }
-    .btn-danger:hover:not(:disabled) { background: #fdecec; }
-    .transcript-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 12px;
-    }
-    .transcript-header h2 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 600;
-    }
+    .section-head h2 { font-size: 15px; margin: 0; font-weight: 650; }
     .transcript {
-      min-height: 220px;
-      max-height: 420px;
-      overflow-y: auto;
-      padding: 8px 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      scroll-behavior: smooth;
+      display: flex; flex-direction: column; gap: 12px;
+      min-height: 180px; max-height: 52vh; overflow-y: auto; padding: 4px 2px;
     }
-    .bubble {
-      max-width: 82%;
-      padding: 10px 14px;
-      border-radius: 14px;
-      font-size: 15px;
-      line-height: 1.45;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-    }
-    .bubble.user {
-      align-self: flex-end;
-      background: var(--primary);
-      color: #fff;
-      border-bottom-right-radius: 4px;
+    .empty-note { color: var(--text-muted); font-size: 14px; padding: 24px 8px; text-align: center; }
+    .bubble { max-width: 82%; padding: 12px 14px; border-radius: 14px; font-size: 14.5px; }
+    .bubble .who {
+      display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; margin-bottom: 4px; opacity: .75;
     }
     .bubble.agent {
-      align-self: flex-start;
-      background: var(--surface-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
+      align-self: flex-start; background: var(--primary-soft); color: var(--text);
+      border: 1px solid #c7e8e2; border-bottom-left-radius: 4px;
     }
-    .bubble .who {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      opacity: 0.7;
-      margin-bottom: 2px;
+    .bubble.user {
+      align-self: flex-end; background: #eef2f5; color: var(--text);
+      border: 1px solid var(--border); border-bottom-right-radius: 4px;
     }
-    .transcript-empty {
-      color: var(--text-muted);
-      text-align: center;
-      padding: 32px 12px;
-      font-size: 14px;
+    .bubble .ts { display: block; font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .citations { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .citation {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11.5px; padding: 3px 9px; border-radius: 999px;
+      background: #fff; border: 1px solid #c7e8e2; color: var(--primary-dark);
     }
-    .fallback {
-      margin-top: 16px;
-      padding: 16px;
-      background: #fff7e6;
-      border: 1px solid #f5d796;
-      border-radius: var(--radius-sm);
-    }
-    .fallback p { margin: 0 0 8px; font-size: 13px; color: var(--warn); }
+    .citation svg { width: 11px; height: 11px; flex: none; }
+
+    /* Fallback text input */
+    .fallback { margin-top: 14px; padding: 12px; border-radius: var(--radius-sm); background: var(--warn-soft); border: 1px solid #eed9ae; }
+    .fallback p { margin: 0 0 8px; font-size: 12.5px; color: var(--warn); }
     .fallback textarea {
-      width: 100%;
-      min-height: 64px;
-      font-family: inherit;
-      font-size: 15px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      resize: vertical;
+      width: 100%; min-height: 60px; resize: vertical; font: inherit; font-size: 14px;
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #fff;
     }
-    .fallback-row {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 8px;
-    }
-    .toast-wrap {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 1100;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-width: calc(100vw - 32px);
-    }
-    .toast {
-      background: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-left: 4px solid var(--danger);
-      border-radius: var(--radius-sm);
-      padding: 12px 16px;
-      font-size: 14px;
-      box-shadow: var(--shadow);
-      min-width: 240px;
-    }
-    .toast.info { border-left-color: var(--primary); }
-    .toast.ok { border-left-color: var(--ok); }
+    .fallback textarea:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+    .fallback-row { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+    .admin-link { text-align: center; }
+    .admin-link a { color: var(--primary-dark); font-size: 13.5px; text-decoration: none; font-weight: 500; }
+    .admin-link a:hover { text-decoration: underline; }
+
+    /* Summary modal */
     .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(16, 42, 67, 0.45);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 1000;
+      position: fixed; inset: 0; background: rgba(15,42,51,.45);
+      display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
     }
     .modal-backdrop.open { display: flex; }
     .modal {
-      background: var(--surface);
-      border-radius: var(--radius);
-      max-width: 560px;
-      width: 100%;
-      max-height: 85vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 20px 60px rgba(16, 42, 67, 0.25);
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 22px 24px;
     }
-    .modal header {
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .modal h3 { margin: 0 0 12px; font-size: 17px; }
+    .modal dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+    .modal dt { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .modal dd { margin: 0; font-size: 14px; }
+    .modal .chip {
+      display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
     }
-    .modal h2 { margin: 0; font-size: 17px; font-weight: 600; }
-    .modal .body {
-      padding: 20px;
-      overflow-y: auto;
-      font-size: 15px;
+    .chip.verde { background: var(--ok-soft); color: var(--ok); }
+    .chip.amarillo { background: var(--warn-soft); color: var(--warn); }
+    .chip.rojo { background: var(--danger-soft); color: var(--danger); }
+    .summary-text {
+      margin-top: 14px; padding: 12px; background: var(--surface-2);
+      border-radius: var(--radius-sm); font-size: 13.5px; white-space: pre-wrap;
     }
-    .modal .body dl {
-      display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 8px 16px;
-      margin: 0;
+    .modal ul { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: #fff; padding: 10px 18px; border-radius: 999px;
+      font-size: 13.5px; opacity: 0; transition: opacity .2s ease; z-index: 60; pointer-events: none;
     }
-    .modal .body dt { color: var(--text-muted); font-weight: 500; }
-    .modal .body dd { margin: 0; }
-    .modal .body .summary-text {
-      white-space: pre-wrap;
-      background: var(--surface-2);
-      padding: 12px 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      margin-top: 12px;
-    }
-    .modal footer {
-      padding: 14px 20px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-    .icon-btn {
-      background: transparent;
-      border: 1px solid transparent;
-      padding: 6px 10px;
-      font-size: 18px;
-      color: var(--text-muted);
-      border-radius: 8px;
-    }
-    .icon-btn:hover { background: var(--surface-2); }
+    .toast.show { opacity: .95; }
+    .toast.error { background: var(--danger); }
+
     .sr-only {
-      position: absolute;
-      width: 1px; height: 1px;
-      padding: 0; margin: -1px;
-      overflow: hidden; clip: rect(0, 0, 0, 0);
-      white-space: nowrap; border: 0;
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
-    @media (max-width: 540px) {
-      .app { padding: 16px 12px 32px; }
-      .card { padding: 16px; }
-      h1 { font-size: 18px; }
-      .btn-primary { width: 100%; }
-      .controls { width: 100%; }
-      .controls .btn-primary,
-      .controls .btn-secondary,
-      .controls .btn-danger { flex: 1 1 auto; }
+
+    @media (max-width: 520px) {
+      .bubble { max-width: 94%; }
+      .controls button { flex: 1; }
     }
   </style>
 </head>
@@ -369,25 +205,25 @@
   <div class="app">
     <header class="app-header">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">+</div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z" fill="#fff"/></svg>
+        </div>
         <div>
-          <h1>Agente de Seguimiento Postoperatorio</h1>
-          <div class="sub">Demo de llamada automatizada — paciente P001</div>
+          <h1>MediCol — Seguimiento Postoperatorio</h1>
+          <div class="sub">Agente de voz clínico · paciente <span id="patientId">P001</span></div>
         </div>
       </div>
+      <span class="pill" id="statusPill" data-state="idle"><span class="dot"></span><span id="statusText">En espera</span></span>
     </header>
 
-    <section class="card" aria-labelledby="call-heading">
-      <h2 id="call-heading" class="sr-only">Controles de la llamada</h2>
-      <div class="status-row">
-        <span class="pill" id="status" data-state="idle" role="status" aria-live="polite">
-          <span class="dot" aria-hidden="true"></span>
-          <span id="statusText">Inactivo</span>
-        </span>
-        <span class="decision" id="decisionBadge" data-level="" role="status" aria-live="polite">
-          <span class="swatch" aria-hidden="true"></span>
-          <span id="decisionText">Decisión: pendiente</span>
-        </span>
+    <section class="card" aria-label="Control de llamada">
+      <div class="severity" aria-label="Nivel de severidad">
+        <div class="severity-track">
+          <div class="severity-seg" data-level="verde" id="segVerde">Verde</div>
+          <div class="severity-seg" data-level="amarillo" id="segAmarillo">Amarillo</div>
+          <div class="severity-seg" data-level="rojo" id="segRojo">Rojo</div>
+        </div>
+        <div class="severity-rationale" id="decisionRationale"></div>
       </div>
       <div class="controls">
         <button id="startBtn" class="btn-primary" type="button">Iniciar Llamada</button>
@@ -396,14 +232,16 @@
     </section>
 
     <section class="card" aria-labelledby="transcript-heading">
-      <div class="transcript-header">
+      <div class="section-head">
         <h2 id="transcript-heading">Transcripción en vivo</h2>
         <span class="sub" id="callMeta"></span>
       </div>
-      <div class="transcript" id="transcript" aria-live="polite" aria-atomic="false"></div>
+      <div class="transcript" id="transcript" aria-live="polite" aria-atomic="false">
+        <div class="empty-note">La conversación aparecerá aquí cuando inicies la llamada.</div>
+      </div>
 
       <div id="fallback" class="fallback">
-        <p>Reconocimiento de voz: si tu navegador tiene problemas, escribe tu mensaje y envíalo.</p>
+        <p id="fallbackNote">Habla después de iniciar la llamada, o escribe tu mensaje aquí.</p>
         <label class="sr-only" for="fallbackText">Mensaje para el agente</label>
         <textarea id="fallbackText" placeholder="Escribe tu mensaje para el agente..."></textarea>
         <div class="fallback-row">
@@ -412,74 +250,50 @@
       </div>
     </section>
 
-    <section class="card" aria-labelledby="admin-link-heading">
-      <h2 id="admin-link-heading" class="sr-only">Enlace a administración</h2>
-      <div class="status-row">
-        <span class="sub">¿Necesitas administrar la base de conocimiento?</span>
-        <a class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center" href="admin.html">Ir a la consola</a>
-      </div>
-    </section>
+    <div class="card admin-link">
+      ¿Necesitas administrar la base de conocimiento? <a href="/admin.html">Ir a la consola</a>
+    </div>
   </div>
-
-  <div class="toast-wrap" id="toasts" aria-live="assertive" aria-atomic="false"></div>
 
   <div class="modal-backdrop" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" hidden>
     <div class="modal">
-      <header>
-        <h2 id="summaryTitle">Resumen de la llamada</h2>
-        <button class="icon-btn" type="button" id="closeSummary" aria-label="Cerrar resumen">&times;</button>
-      </header>
-      <div class="body" id="summaryBody">
-        <p>Cargando resumen...</p>
+      <h3 id="summaryTitle">Resumen de la llamada</h3>
+      <div id="summaryBody"></div>
+      <div class="modal-actions">
+        <button id="okSummary" class="btn-primary" type="button">Entendido</button>
       </div>
-      <footer>
-        <button class="btn-primary" type="button" id="okSummary">Aceptar</button>
-      </footer>
     </div>
   </div>
+
+  <div class="toast" id="toast" role="status"></div>
 
   <script>
     (function () {
       "use strict";
 
       const PATIENT_ID = "P001";
-      const SILENCE_MS = 10000;
-      const SILENCE_PROMPT = "¿Sigues ahí?";
-
-      const STATUS_LABELS = {
-        idle: "Inactivo",
-        starting: "Conectando...",
-        listening: "Escuchando...",
-        procesando: "Procesando...",
-        hablando: "Hablando...",
-        silencio: "Sin respuesta",
-        error: "Error",
-        ended: "Llamada finalizada"
-      };
-
-      const DECISION_LABELS = {
-        verde: "Decisión: verde",
-        amarillo: "Decisión: amarillo",
-        rojo: "Decisión: rojo"
-      };
 
       const els = {
+        statusPill: document.getElementById("statusPill"),
+        statusText: document.getElementById("statusText"),
         startBtn: document.getElementById("startBtn"),
         stopBtn: document.getElementById("stopBtn"),
-        status: document.getElementById("status"),
-        statusText: document.getElementById("statusText"),
-        decision: document.getElementById("decisionBadge"),
-        decisionText: document.getElementById("decisionText"),
         transcript: document.getElementById("transcript"),
         callMeta: document.getElementById("callMeta"),
         fallback: document.getElementById("fallback"),
+        fallbackNote: document.getElementById("fallbackNote"),
         fallbackText: document.getElementById("fallbackText"),
         fallbackSend: document.getElementById("fallbackSend"),
-        toasts: document.getElementById("toasts"),
         summaryModal: document.getElementById("summaryModal"),
         summaryBody: document.getElementById("summaryBody"),
-        closeSummary: document.getElementById("closeSummary"),
-        okSummary: document.getElementById("okSummary")
+        okSummary: document.getElementById("okSummary"),
+        toast: document.getElementById("toast"),
+        rationale: document.getElementById("decisionRationale"),
+        segs: {
+          verde: document.getElementById("segVerde"),
+          amarillo: document.getElementById("segAmarillo"),
+          rojo: document.getElementById("segRojo"),
+        },
       };
 
       const state = {
@@ -487,288 +301,297 @@
         inCall: false,
         busy: false,
         speaking: false,
-        recognition: null,
-        sttSupported: false,
+        listening: false,
+        mediaRecorder: null,
+        mediaStream: null,
+        audioCtx: null,
+        analyser: null,
         silenceTimer: null,
-        currentDecision: ""
+        spokeOnce: false,
+        currentAudio: null,
       };
 
+      const SILENCE_RMS = 0.015;
+      const SILENCE_MS = 2200;
+      const MAX_RECORD_MS = 30000;
+
       function uuidv4() {
-        if (window.crypto && typeof window.crypto.randomUUID === "function") {
-          return window.crypto.randomUUID();
-        }
-        const bytes = new Uint8Array(16);
-        if (window.crypto && window.crypto.getRandomValues) {
-          window.crypto.getRandomValues(bytes);
-        } else {
-          for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
-        }
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0"));
-        return (
-          hex.slice(0, 4).join("") + "-" +
-          hex.slice(4, 6).join("") + "-" +
-          hex.slice(6, 8).join("") + "-" +
-          hex.slice(8, 10).join("") + "-" +
-          hex.slice(10, 16).join("")
-        );
+        if (crypto.randomUUID) return crypto.randomUUID();
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
       }
 
-      function setStatus(stateName) {
-        els.status.setAttribute("data-state", stateName);
-        els.statusText.textContent = STATUS_LABELS[stateName] || stateName;
+      function toast(msg, kind) {
+        els.toast.textContent = msg;
+        els.toast.className = "toast show" + (kind === "error" ? " error" : "");
+        setTimeout(() => (els.toast.className = "toast"), 3200);
       }
 
-      function setDecision(level, label) {
-        const lvl = (level || "").toLowerCase();
-        if (!lvl) {
-          els.decision.setAttribute("data-level", "");
-          els.decisionText.textContent = "Decisión: pendiente";
-          return;
-        }
-        els.decision.setAttribute("data-level", lvl);
-        els.decisionText.textContent = label || DECISION_LABELS[lvl] || ("Decisión: " + lvl);
-        state.currentDecision = lvl;
+      function setStatus(s) {
+        const map = {
+          idle: ["idle", "En espera"],
+          starting: ["processing", "Iniciando…"],
+          listening: ["listening", "Escuchando…"],
+          processing: ["processing", "Procesando…"],
+          speaking: ["speaking", "Hablando…"],
+          ended: ["idle", "Llamada finalizada"],
+          error: ["error", "Error"],
+        };
+        const [ds, label] = map[s] || map.idle;
+        els.statusPill.setAttribute("data-state", ds);
+        els.statusText.textContent = label;
       }
 
-      function toast(message, kind) {
-        const el = document.createElement("div");
-        el.className = "toast" + (kind ? " " + kind : "");
-        el.textContent = message;
-        els.toasts.appendChild(el);
-        setTimeout(() => {
-          el.style.opacity = "0";
-          el.style.transition = "opacity 0.3s ease";
-          setTimeout(() => el.remove(), 300);
-        }, 4500);
+      function setDecision(decision) {
+        const label = typeof decision === "string" ? decision : (decision && decision.label) || "";
+        Object.values(els.segs).forEach((el) => el.classList.remove("active"));
+        if (els.segs[label]) els.segs[label].classList.add("active");
+        els.rationale.textContent = (decision && decision.rationale) || "";
       }
 
-      function appendBubble(role, text) {
-        const empty = els.transcript.querySelector(".transcript-empty");
+      function appendBubble(who, text, retrieval) {
+        const empty = els.transcript.querySelector(".empty-note");
         if (empty) empty.remove();
-        const wrap = document.createElement("div");
-        wrap.className = "bubble " + role;
-        const who = document.createElement("span");
-        who.className = "who";
-        who.textContent = role === "user" ? "Tú" : "Agente";
+        const div = document.createElement("div");
+        div.className = "bubble " + (who === "agent" ? "agent" : "user");
+        const w = document.createElement("span");
+        w.className = "who";
+        w.textContent = who === "agent" ? "Agente" : "Paciente";
         const body = document.createElement("span");
         body.textContent = text;
-        wrap.appendChild(who);
-        wrap.appendChild(body);
-        els.transcript.appendChild(wrap);
+        div.appendChild(w);
+        div.appendChild(body);
+        if (who === "agent" && Array.isArray(retrieval) && retrieval.length) {
+          const cites = document.createElement("div");
+          cites.className = "citations";
+          const seen = new Set();
+          retrieval.forEach((r) => {
+            const src = r.source || r.id || "";
+            if (!src || seen.has(src)) return;
+            seen.add(src);
+            const chip = document.createElement("span");
+            chip.className = "citation";
+            const name = String(src).split("/").pop();
+            const score = typeof r.score === "number" ? r.score.toFixed(2) : "";
+            chip.innerHTML =
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>' +
+              document.createTextNode("Fuente: " + name + (score ? " · " + score : "")).textContent;
+            cites.appendChild(chip);
+          });
+          if (cites.childNodes.length) div.appendChild(cites);
+        }
+        const ts = document.createElement("span");
+        ts.className = "ts";
+        ts.textContent = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+        div.appendChild(ts);
+        els.transcript.appendChild(div);
         els.transcript.scrollTop = els.transcript.scrollHeight;
       }
 
-      function setTranscriptEmpty(message) {
-        els.transcript.innerHTML = "";
-        const empty = document.createElement("div");
-        empty.className = "transcript-empty";
-        empty.textContent = message;
-        els.transcript.appendChild(empty);
-      }
-
-      function speak(text) {
-        if (!("speechSynthesis" in window)) {
-          return Promise.resolve();
-        }
-        return new Promise(resolve => {
+      // ------------------------------------------------------------------
+      // TTS: /api/tts -> audio/mpeg, fallback to speechSynthesis
+      // ------------------------------------------------------------------
+      async function speak(text) {
+        if (!text) return;
+        state.speaking = true;
+        setStatus("speaking");
+        try {
+          const res = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: text.slice(0, 1500) }),
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          await new Promise((resolve) => {
+            const audio = new Audio(url);
+            state.currentAudio = audio;
+            audio.onended = resolve;
+            audio.onerror = resolve;
+            audio.play().catch(resolve);
+          });
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          // Fallback: browser speechSynthesis
           try {
-            window.speechSynthesis.cancel();
-          } catch (_) {}
-          const u = new SpeechSynthesisUtterance(text);
-          u.lang = "es-CO";
-          u.rate = 1;
-          u.pitch = 1;
-          let settled = false;
-          const done = () => {
-            if (settled) return;
-            settled = true;
-            resolve();
-          };
-          u.onend = done;
-          u.onerror = done;
-          state.speaking = true;
-          setStatus("hablando");
-          window.speechSynthesis.speak(u);
-          setTimeout(done, Math.max(2000, text.length * 80));
-        });
+            await new Promise((resolve) => {
+              const u = new SpeechSynthesisUtterance(text);
+              u.lang = "es-CO";
+              u.onend = resolve;
+              u.onerror = resolve;
+              speechSynthesis.speak(u);
+            });
+          } catch (_) { /* ignore */ }
+        } finally {
+          state.speaking = false;
+          state.currentAudio = null;
+        }
       }
 
       function cancelSpeech() {
-        if ("speechSynthesis" in window) {
-          try { window.speechSynthesis.cancel(); } catch (_) {}
+        if (state.currentAudio) {
+          try { state.currentAudio.pause(); } catch (_) {}
+          state.currentAudio = null;
         }
+        try { speechSynthesis.cancel(); } catch (_) {}
         state.speaking = false;
       }
 
-      function clearSilenceTimer() {
-        if (state.silenceTimer) {
-          clearTimeout(state.silenceTimer);
-          state.silenceTimer = null;
-        }
-      }
-
-      function armSilenceTimer() {
-        clearSilenceTimer();
-        if (!state.inCall) return;
-        state.silenceTimer = setTimeout(onSilenceTimeout, SILENCE_MS);
-      }
-
-      function onSilenceTimeout() {
-        state.silenceTimer = null;
-        if (!state.inCall || state.busy || state.speaking) return;
-        setStatus("silencio");
-        speak(SILENCE_PROMPT).finally(() => {
-          if (state.inCall && !state.busy) {
-            startListening();
-          }
-        });
-      }
-
-      function startListening() {
-        if (!state.recognition) return;
-        if (state.busy || state.speaking) return;
+      // ------------------------------------------------------------------
+      // STT: MediaRecorder + AnalyserNode silence detection -> /api/stt
+      // ------------------------------------------------------------------
+      async function ensureMic() {
+        if (state.mediaStream) return true;
         try {
-          state.recognition.start();
-        } catch (_) {}
-      }
-
-      function stopRecognitionSafe() {
-        if (state.recognition) {
-          try { state.recognition.stop(); } catch (_) {}
+          state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          return true;
+        } catch (err) {
+          els.fallbackNote.textContent =
+            "Micrófono no disponible (" + (err && err.name ? err.name : "error") +
+            "). Escribe tu mensaje y envíalo.";
+          return false;
         }
       }
 
-      async function sendToAgent(transcript) {
-        const res = await fetch("/api/assist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript: transcript,
-            paciente_id: PATIENT_ID,
-            call_id: state.callId
-          })
-        });
-        if (!res.ok) {
-          let detail = "";
-          try {
-            const j = await res.json();
-            detail = (j && (j.detail || j.error)) || "";
-          } catch (_) {}
-          throw new Error("El agente no pudo responder (HTTP " + res.status + (detail ? ": " + detail : "") + ")");
+      function stopRecorderSafe() {
+        state.listening = false;
+        if (state.silenceTimer) { clearTimeout(state.silenceTimer); state.silenceTimer = null; }
+        const rec = state.mediaRecorder;
+        if (rec && rec.state !== "inactive") {
+          try { rec.stop(); } catch (_) {}
         }
-        return res.json();
       }
 
-      async function handleUserTurn(text) {
-        const clean = (text || "").trim();
-        if (!clean) return;
-        if (!state.inCall) return;
-        clearSilenceTimer();
-        state.busy = true;
-        setStatus("procesando");
-        appendBubble("user", clean);
+      async function startListening() {
+        if (!state.inCall || state.busy || state.speaking || state.listening) return;
+        const ok = await ensureMic();
+        if (!ok) return;
+
+        const chunks = [];
+        let rec;
         try {
-          const data = await sendToAgent(clean);
-          const response = (data && (data.response || data.answer || data.text)) || "";
-          const decision = (data && data.decision) || "";
-          const sources = Array.isArray(data && data.sources) ? data.sources : [];
-          if (response) {
-            appendBubble("agent", response);
-            await speak(response);
+          rec = new MediaRecorder(state.mediaStream, { mimeType: "audio/webm" });
+        } catch (_) {
+          try { rec = new MediaRecorder(state.mediaStream); } catch (e2) {
+            els.fallbackNote.textContent = "Grabación no soportada. Usa el texto.";
+            return;
           }
-          if (decision) {
-            // decision may be a string ("rojo") or an object ({label, score, ...})
-            const lvl = (typeof decision === "string")
-              ? decision
-              : (decision.level || decision.color || decision.label || "");
-            setDecision(lvl);
-            const rationale = decision.rationale || decision.reason || decision.note;
-            if (rationale) toast(rationale, lvl === "rojo" ? "error" : (lvl === "amarillo" ? "warn" : "info"));
-          } else if (data && data.decision_label) {
-            setDecision(data.decision_label);
-          }
-          if (sources.length) {
-            const srcs = sources.map(s => s.name || s.title || s.id).filter(Boolean).join(", ");
-            if (srcs) {
-              const meta = document.createElement("div");
-              meta.className = "sub";
-              meta.style.marginTop = "4px";
-              meta.textContent = "Fuentes: " + srcs;
-              const last = els.transcript.lastElementChild;
-              if (last) last.appendChild(meta);
+        }
+        state.mediaRecorder = rec;
+        state.listening = true;
+        state.spokeOnce = false;
+        setStatus("listening");
+
+        rec.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+        rec.onstop = async () => {
+          state.listening = false;
+          if (!state.inCall) return;
+          if (!state.spokeOnce || !chunks.length) { startListeningSoon(); return; }
+          const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+          await sendAudioForTranscript(blob);
+        };
+        rec.start(250);
+
+        // Silence detection via RMS
+        try {
+          if (!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = state.audioCtx.createMediaStreamSource(state.mediaStream);
+          const analyser = state.audioCtx.createAnalyser();
+          analyser.fftSize = 2048;
+          src.connect(analyser);
+          state.analyser = analyser;
+          const buf = new Float32Array(analyser.fftSize);
+          let silentSince = null;
+          const startedAt = Date.now();
+
+          const check = () => {
+            if (!state.listening) return;
+            analyser.getFloatTimeDomainData(buf);
+            let sum = 0;
+            for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+            const rms = Math.sqrt(sum / buf.length);
+            const now = Date.now();
+            if (rms > SILENCE_RMS) {
+              state.spokeOnce = true;
+              silentSince = null;
+            } else if (state.spokeOnce) {
+              if (silentSince === null) silentSince = now;
+              if (now - silentSince > SILENCE_MS) { stopRecorderSafe(); return; }
             }
+            if (now - startedAt > MAX_RECORD_MS) { stopRecorderSafe(); return; }
+            requestAnimationFrame(check);
+          };
+          check();
+        } catch (_) {
+          // No analyser: fall back to a fixed 6s window
+          state.silenceTimer = setTimeout(() => stopRecorderSafe(), 6000);
+        }
+      }
+
+      function startListeningSoon() {
+        setTimeout(() => { if (state.inCall && !state.busy && !state.speaking) startListening(); }, 350);
+      }
+
+      async function sendAudioForTranscript(blob) {
+        state.busy = true;
+        setStatus("processing");
+        try {
+          const fd = new FormData();
+          fd.append("file", blob, "turno.webm");
+          const res = await fetch("/api/stt", { method: "POST", body: fd });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const text = (data && data.text || "").trim();
+          state.busy = false;
+          if (text) {
+            await handleUserTurn(text);
+          } else {
+            setStatus("listening");
+            startListeningSoon();
           }
         } catch (err) {
-          console.error(err);
-          toast(err && err.message ? err.message : "Error de comunicación con el agente", "error");
-          appendBubble("agent", "Disculpa, hubo un problema al procesar tu respuesta. Intentemos de nuevo.");
-        } finally {
           state.busy = false;
-          state.speaking = false;
-          if (state.inCall) {
-            setStatus("listening");
-            startListening();
-            armSilenceTimer();
-          } else {
-            setStatus("ended");
-          }
+          toast("No pude transcribir el audio. Escribe tu mensaje abajo.", "error");
+          els.fallbackNote.textContent = "La transcripción falló. Escribe tu mensaje y envíalo.";
+          setStatus("listening");
         }
       }
 
-      function initRecognition() {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) {
-          state.sttSupported = false;
-          els.fallback.hidden = false;
-          return null;
+      // ------------------------------------------------------------------
+      // Turn flow
+      // ------------------------------------------------------------------
+      async function handleUserTurn(text) {
+        text = (text || "").trim();
+        if (!text || state.busy) return;
+        state.busy = true;
+        stopRecorderSafe();
+        cancelSpeech();
+        appendBubble("user", text);
+        setStatus("processing");
+        try {
+          const res = await fetch("/api/assist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript: text, paciente_id: PATIENT_ID, call_id: state.callId }),
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const response = (data && (data.response || data.answer || data.text)) || "";
+          if (data && data.decision) setDecision(data.decision);
+          if (response) {
+            appendBubble("agent", response, data.retrieval);
+            await speak(response);
+          }
+        } catch (err) {
+          toast("Error de conexión con el agente.", "error");
+        } finally {
+          state.busy = false;
+          if (state.inCall) { setStatus("listening"); startListeningSoon(); }
         }
-        state.sttSupported = true;
-        const rec = new SR();
-        rec.lang = "es-CO";
-        rec.continuous = false;
-        rec.interimResults = false;
-        rec.maxAlternatives = 1;
-
-        rec.onstart = () => {
-          if (!state.inCall) return;
-          setStatus("listening");
-          armSilenceTimer();
-        };
-        rec.onresult = (ev) => {
-          clearSilenceTimer();
-          let text = "";
-          if (ev.results && ev.results.length) {
-            text = ev.results[0][0].transcript || "";
-          }
-          if (text) handleUserTurn(text);
-        };
-        rec.onerror = (ev) => {
-          clearSilenceTimer();
-          const err = ev && ev.error;
-          if (err === "no-speech" || err === "aborted") {
-            if (state.inCall && !state.busy && !state.speaking) {
-              armSilenceTimer();
-              setStatus("listening");
-            }
-            return;
-          }
-          if (err === "not-allowed" || err === "service-not-allowed") {
-            toast("Permiso de micrófono denegado. Puedes escribir tu respuesta abajo.", "error");
-            els.fallback.hidden = false;
-            setStatus("error");
-            return;
-          }
-          toast("Error de reconocimiento de voz: " + err, "error");
-        };
-        rec.onend = () => {
-          clearSilenceTimer();
-          if (state.inCall && !state.busy && !state.speaking) {
-            startListening();
-          }
-        };
-        return rec;
       }
 
       async function startCall() {
@@ -781,45 +604,34 @@
         els.startBtn.disabled = true;
         els.stopBtn.disabled = false;
         els.fallbackText.value = "";
-        setTranscriptEmpty("La conversación aparecerá aquí cuando inicies la llamada.");
+        els.transcript.innerHTML = "";
         setDecision("");
-        els.callMeta.textContent = "Llamada: " + state.callId;
+        els.callMeta.textContent = "Llamada: " + state.callId.slice(0, 8) + "…";
         setStatus("starting");
         try {
-          const greeting = await fetch("/api/assist", {
+          const res = await fetch("/api/assist", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              transcript: "",
-              paciente_id: PATIENT_ID,
-              call_id: state.callId,
-              greeting: true
-            })
+            body: JSON.stringify({ transcript: "", paciente_id: PATIENT_ID, call_id: state.callId, greeting: true }),
           });
-          if (greeting.ok) {
-            const data = await greeting.json();
+          if (res.ok) {
+            const data = await res.json();
             const response = (data && (data.response || data.answer || data.text)) || "";
             if (response) {
-              appendBubble("agent", response);
+              appendBubble("agent", response, data.retrieval);
               await speak(response);
             }
           }
         } catch (err) {
           console.warn("Saludo no disponible, continuando.", err);
         }
-        state.speaking = false;
-        if (state.inCall) {
-          setStatus("listening");
-          startListening();
-          armSilenceTimer();
-        }
+        if (state.inCall) { setStatus("listening"); startListeningSoon(); }
       }
 
       async function endCall() {
         if (!state.inCall) return;
         state.inCall = false;
-        clearSilenceTimer();
-        stopRecognitionSafe();
+        stopRecorderSafe();
         cancelSpeech();
         els.startBtn.disabled = false;
         els.stopBtn.disabled = true;
@@ -829,68 +641,50 @@
           const res = await fetch("/api/summary", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ call_id: state.callId, paciente_id: PATIENT_ID })
+            body: JSON.stringify({ call_id: state.callId, paciente_id: PATIENT_ID }),
           });
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           renderSummary(data);
         } catch (err) {
-          console.error(err);
-          els.summaryBody.innerHTML = "";
           const p = document.createElement("p");
-          p.textContent = "No se pudo obtener el resumen del servidor. La conversación se ha guardado localmente.";
+          p.textContent = "No se pudo obtener el resumen del servidor.";
           els.summaryBody.appendChild(p);
-          const pre = document.createElement("div");
-          pre.className = "summary-text";
-          const bubbles = els.transcript.querySelectorAll(".bubble");
-          const lines = [];
-          bubbles.forEach(b => {
-            const who = b.querySelector(".who") ? b.querySelector(".who").textContent : "";
-            const body = b.querySelector("span:last-child") ? b.querySelector("span:last-child").textContent : b.textContent;
-            lines.push(who + ": " + body);
-          });
-          pre.textContent = lines.join("\n") || "(sin contenido)";
-          els.summaryBody.appendChild(pre);
         }
       }
 
       function renderSummary(data) {
         els.summaryBody.innerHTML = "";
         const dl = document.createElement("dl");
+        const decision = data.decision || data.decision_final || "—";
+        const label = typeof decision === "string" ? decision : (decision.label || "—");
         const fields = [
-          ["Paciente", data.paciente_id || data.paciente || PATIENT_ID],
-          ["Llamada", data.call_id || state.callId],
-          ["Decisión final", data.decision_final || data.decision || state.currentDecision || "—"],
-          ["Duración", data.duracion || data.duration || "—"],
-          ["Mensajes", data.mensajes != null ? data.mensajes : els.transcript.querySelectorAll(".bubble").length]
+          ["Paciente", data.paciente_id || PATIENT_ID],
+          ["Llamada", (data.call_id || state.callId || "").slice(0, 12) + "…"],
+          ["Decisión final", null],
+          ["Síntomas", (data.sintomas_reportados || []).join(", ") || "—"],
         ];
         fields.forEach(([k, v]) => {
-          const dt = document.createElement("dt");
-          dt.textContent = k;
+          const dt = document.createElement("dt"); dt.textContent = k;
           const dd = document.createElement("dd");
-          dd.textContent = String(v);
-          dl.appendChild(dt);
-          dl.appendChild(dd);
+          if (v === null) {
+            const chip = document.createElement("span");
+            chip.className = "chip " + label;
+            chip.textContent = label.toUpperCase();
+            dd.appendChild(chip);
+          } else dd.textContent = String(v);
+          dl.appendChild(dt); dl.appendChild(dd);
         });
         els.summaryBody.appendChild(dl);
-        if (data.resumen || data.summary) {
-          const t = document.createElement("div");
-          t.className = "summary-text";
-          t.textContent = data.resumen || data.summary;
-          els.summaryBody.appendChild(t);
-        }
-        if (data.recomendaciones) {
+        const steps = data.proximos_pasos || data.recomendaciones;
+        if (steps && steps.length) {
           const h = document.createElement("p");
-          h.style.marginTop = "16px";
-          h.style.fontWeight = "600";
-          h.textContent = "Recomendaciones";
+          h.style.marginTop = "14px"; h.style.fontWeight = "650";
+          h.textContent = "Próximos pasos";
           els.summaryBody.appendChild(h);
           const ul = document.createElement("ul");
-          const arr = Array.isArray(data.recomendaciones) ? data.recomendaciones : [data.recomendaciones];
-          arr.forEach(r => {
-            const li = document.createElement("li");
-            li.textContent = r;
-            ul.appendChild(li);
+          (Array.isArray(steps) ? steps : [steps]).forEach((s) => {
+            const li = document.createElement("li"); li.textContent = s; ul.appendChild(li);
           });
           els.summaryBody.appendChild(ul);
         }
@@ -920,7 +714,6 @@
             els.fallbackSend.click();
           }
         });
-        els.closeSummary.addEventListener("click", closeSummary);
         els.okSummary.addEventListener("click", closeSummary);
         els.summaryModal.addEventListener("click", (e) => {
           if (e.target === els.summaryModal) closeSummary();
@@ -931,9 +724,7 @@
       }
 
       function init() {
-        state.recognition = initRecognition();
         bindEvents();
-        setTranscriptEmpty("La conversación aparecerá aquí cuando inicies la llamada.");
         setStatus("idle");
         setDecision("");
       }

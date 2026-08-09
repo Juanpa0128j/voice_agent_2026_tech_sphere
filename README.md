@@ -15,8 +15,12 @@ Agente de voz con IA para seguimiento postoperatorio. Construido para el [Tech S
 
 - **LLM**: Groq + Llama 3.1 8B Instant (`llama-3.1-8b-instant`) — familia Meta Llama,
   nivel gratuito de Groq. Default 3.3 70B excedía el límite TPD (100K tokens/día).
-- **Voz (STT + TTS)**: Web Speech API nativa del navegador, locale `es-CO` (español colombiano).
-  Sin dependencias de servidor. Chrome recomendado.
+- **Voz STT**: Groq Whisper (`whisper-large-v3`) — captura por `MediaRecorder` en el
+  navegador, detección de silencio con `AnalyserNode`, transcripción en español en el
+  servidor. Sin dependencia de Web Speech API (evita el error "network" de Chrome).
+- **Voz TTS**: edge-tts `es-CO-SalomeNeural` — voz neural colombiana natural, MP3
+  streameado desde `/api/tts`. Fallback a `speechSynthesis` del navegador si el
+  endpoint falla.
 - **Embeddings**: BAAI/bge-m3 (1024 dim, multilingüe).
 - **Vector DB**: ChromaDB PersistentClient, persistente en Modal Volume.
 
@@ -72,28 +76,29 @@ curl -X POST https://juanpa0128j--voice-agent.modal.run/api/assist \
 Everything below was tested against the live Modal deployment
 (`juanpa0128j--voice-agent.modal.run`) on Aug 9, 2026:
 
-| Step | What it does | Verified |
-|---|---|---|
-| `/api/health` | Liveness probe | 200, ~0.7 s |
-| `/` | Serve `index.html` | 200, 31 KB |
-| `/admin`, `/admin.html` | Serve admin console | 200 |
-| `POST /api/assist` (greeting) | Open the call, return agent intro | 200, 351-char Spanish response |
-| `POST /api/assist` rojo | "fiebre 39 + dolor 9" | `label=rojo`, `alert=true`, 3 RAG chunks |
-| `POST /api/assist` verde | "me siento bien" | `label=verde` |
-| `POST /api/summary` | Build summary from history | 200, structured call summary |
-| `GET /admin/documents` | List knowledge base | 6 indexed docs (Appendicitis corpus) |
-| `POST /admin/upload` + `query` + `delete` + `query` | G5 knowledge alive | PASS — uploaded doc retrieved, then forgotten after delete |
+| Step                                                | What it does                      | Verified                                                   |
+| --------------------------------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| `/api/health`                                       | Liveness probe                    | 200, ~0.7 s                                                |
+| `/`                                                 | Serve `index.html`                | 200, 31 KB                                                 |
+| `/admin`, `/admin.html`                             | Serve admin console               | 200                                                        |
+| `POST /api/assist` (greeting)                       | Open the call, return agent intro | 200, 351-char Spanish response                             |
+| `POST /api/assist` rojo                             | "fiebre 39 + dolor 9"             | `label=rojo`, `alert=true`, 3 RAG chunks                   |
+| `POST /api/assist` verde                            | "me siento bien"                  | `label=verde`                                              |
+| `POST /api/summary`                                 | Build summary from history        | 200, structured call summary                               |
+| `GET /admin/documents`                              | List knowledge base               | 6 indexed docs (Appendicitis corpus)                       |
+| `POST /admin/upload` + `query` + `delete` + `query` | G5 knowledge alive                | PASS — uploaded doc retrieved, then forgotten after delete |
 
 ## Stack
 
-| Componente | Tecnología | Detalle |
-|---|---|---|
-| LLM | Groq + Llama 3.1 8B Instant | Modelo permitido (Meta Llama vía Groq). Default 3.3 70B hit TPD limits. |
-| Embeddings | BGE-M3 (BAAI) | 1024 dim, multilingüe, 100+ idiomas |
-| Vector DB | ChromaDB (PersistentClient) | Persistente en Modal Volume |
-| TTS / STT | Web Speech API (`es-CO`) | Browser-native, sin dependencias |
-| Backend | FastAPI + Python 3.11 | Async, OpenAPI en `/docs` |
-| Hosting | Modal | $30/mo free credit, Volumes, scales to zero |
+| Componente | Tecnología                        | Detalle                                                                 |
+| ---------- | --------------------------------- | ----------------------------------------------------------------------- |
+| LLM        | Groq + Llama 3.1 8B Instant       | Modelo permitido (Meta Llama vía Groq). Default 3.3 70B hit TPD limits. |
+| Embeddings | BGE-M3 (BAAI)                     | 1024 dim, multilingüe, 100+ idiomas                                     |
+| Vector DB  | ChromaDB (PersistentClient)       | Persistente en Modal Volume                                             |
+| STT        | Groq Whisper (`whisper-large-v3`) | Server-side, forzado a `es`                                             |
+| TTS        | edge-tts (`es-CO-SalomeNeural`)   | Streaming MP3, fallback a Web Speech API                                |
+| Backend    | FastAPI + Python 3.11             | Async, OpenAPI en `/docs`                                               |
+| Hosting    | Modal                             | $30/mo free credit, Volumes, scales to zero                             |
 
 ## Modelo de lenguaje
 
@@ -131,16 +136,18 @@ Diagrama detallado en [`docs/architecture-diagram.png`](docs/architecture-diagra
 
 ## Endpoints
 
-| Método | Path | Descripción |
-|---|---|---|
-| GET | `/api/health` | Liveness probe |
-| POST | `/api/assist` | Endpoint principal. Acepta `{transcript, call_id?, k?, paciente_id?, greeting?}`; `greeting=true` con transcript vacío abre la llamada. |
-| GET | `/api/metrics` | P50/P95 latencia, tokens, costo estimado |
-| POST | `/api/summary` | Resumen estructurado de una llamada cerrada |
-| GET | `/admin/documents` | Lista de documentos en la base de conocimiento |
-| POST | `/admin/upload` | Subir PDF/TXT/MD, lo agrega a ChromaDB |
-| POST | `/admin/delete` | Eliminar documento de ChromaDB |
-| POST | `/admin/reindex` | Re-indexar todo `ADMIN_DATA_DIR` |
+| Método | Path               | Descripción                                                                                                                             |
+| ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/health`      | Liveness probe                                                                                                                          |
+| POST   | `/api/assist`      | Endpoint principal. Acepta `{transcript, call_id?, k?, paciente_id?, greeting?}`; `greeting=true` con transcript vacío abre la llamada. |
+| GET    | `/api/metrics`     | P50/P95 latencia, tokens, costo estimado                                                                                                |
+| POST   | `/api/summary`     | Resumen estructurado de una llamada cerrada                                                                                             |
+| POST   | `/api/stt`         | Transcripción de audio (Whisper) — multipart file → `{text, language, duration_ms}`                                                     |
+| POST   | `/api/tts`         | Síntesis de voz colombiana (edge-tts) — `{text}` → stream `audio/mpeg`                                                                  |
+| GET    | `/admin/documents` | Lista de documentos en la base de conocimiento                                                                                          |
+| POST   | `/admin/upload`    | Subir PDF/TXT/MD, lo agrega a ChromaDB                                                                                                  |
+| POST   | `/admin/delete`    | Eliminar documento de ChromaDB                                                                                                          |
+| POST   | `/admin/reindex`   | Re-indexar todo `ADMIN_DATA_DIR`                                                                                                        |
 
 ## Métricas (rubrica §5)
 
@@ -152,19 +159,19 @@ Reportadas en `/api/metrics` después de cada llamada:
 
 Resultados de calibración sobre 160 casos ground-truth (ver `docs/informe-final.md`):
 
-| Capa | Accuracy | Recall rojo | Notas |
-|---|---|---|---|
-| Capa 1 (limpia) | 76 % | 75 % | LLM 70B, mejor resultado |
-| Capa 2 (ruidosa) | 37 % | 42 % | LLM 70B con rate limit → fallback keyword |
+| Capa             | Accuracy | Recall rojo | Notas                                     |
+| ---------------- | -------- | ----------- | ----------------------------------------- |
+| Capa 1 (limpia)  | 76 %     | 75 %        | LLM 70B, mejor resultado                  |
+| Capa 2 (ruidosa) | 37 %     | 42 %        | LLM 70B con rate limit → fallback keyword |
 
 ## Tests
 
 ```bash
 .venv/bin/pip install -r backend/requirements.txt
-.venv/bin/pytest tests/ -v
+PYTHONPATH=. .venv/bin/pytest tests/ -v
 ```
 
-**60/60 tests passing.** Cobertura: 80 %+ en lógica clínica (`decision.py`, `summary.py`), más 7 tests de robustez Capa 2 ruidosa (`tests/test_noisy_capa2.py`).
+**68/68 tests passing.** Cobertura: 80 %+ en lógica clínica (`decision.py`, `summary.py`), más 7 tests de robustez Capa 2 ruidosa (`tests/test_noisy_capa2.py`) y 8 tests de voz (`tests/test_voice.py`).
 
 ## Estructura
 

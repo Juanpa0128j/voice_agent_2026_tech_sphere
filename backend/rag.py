@@ -38,7 +38,14 @@ class RAGStore:
         os.makedirs(persist_dir, exist_ok=True)
         self.persist_dir = persist_dir
         self.collection_name = collection_name
-        self._client = chromadb.PersistentClient(path=persist_dir)
+        try:
+            from chromadb.config import Settings
+            self._client = chromadb.PersistentClient(
+                path=persist_dir,
+                settings=Settings(anonymized_telemetry=False),
+            )
+        except TypeError:
+            self._client = chromadb.PersistentClient(path=persist_dir)
         self._embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name="BAAI/bge-m3"
         )

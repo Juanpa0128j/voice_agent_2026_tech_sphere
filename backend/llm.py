@@ -54,10 +54,27 @@ class LLMClient:
     ) -> Dict[str, Any]:
         return self._call(messages, temperature=temperature, max_tokens=max_tokens)
 
-    def generate(self, transcript: str, context: str = "") -> str:
+    def generate(
+        self,
+        transcript: str,
+        context: str = "",
+        history: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
         from backend.prompts import SYSTEM_PROMPT
-        messages = build_messages(SYSTEM_PROMPT, [{"role": "user", "content": transcript}],
-                                  context_docs=[context] if context else None)
+        conversation: List[Dict[str, Any]] = []
+        for turn in history or []:
+            t = (turn.get("transcript") or "").strip()
+            r = (turn.get("response") or "").strip()
+            if t:
+                conversation.append({"role": "user", "content": t})
+            if r:
+                conversation.append({"role": "assistant", "content": r})
+        conversation.append({"role": "user", "content": transcript})
+        messages = build_messages(
+            SYSTEM_PROMPT,
+            conversation,
+            context_docs=[context] if context else None,
+        )
         result = self._call(messages, temperature=0.3, max_tokens=500)
         return result.get("content", "")
 

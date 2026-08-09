@@ -64,6 +64,19 @@ if _FRONTEND_DIR.is_dir():
             return FileResponse(str(index_path))
         return {"status": "ok", "message": "Voice Agent API. UI not found."}
 
+    @app.get("/index.html", include_in_schema=False)
+    def _index_html() -> Any:
+        index_path = _FRONTEND_DIR / "index.html"
+        if index_path.is_file():
+            from fastapi.responses import FileResponse
+            return FileResponse(str(index_path))
+        return {"error": "index.html not found"}
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def _favicon() -> Any:
+        from fastapi.responses import Response
+        return Response(status_code=204)
+
     @app.get("/admin", include_in_schema=False)
     @app.get("/admin/", include_in_schema=False)
     @app.get("/admin.html", include_in_schema=False)
@@ -134,6 +147,7 @@ _summary_service: Any = None
 _metrics_collector: Any = None
 _patient_context: Any = None
 _admin_store: Any = None
+_stt_client: Any = None
 
 
 def _safe_import(name: str) -> Any:
@@ -266,6 +280,21 @@ def get_admin_store() -> Any:
     return _admin_store if _admin_store is not _UNAVAILABLE else None
 
 
+def get_stt_client() -> Any:
+    global _stt_client
+    if _stt_client is None:
+        module = _safe_import("stt")
+        if module is None:
+            _stt_client = _UNAVAILABLE
+            return None
+        try:
+            _stt_client = module.STTClient()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("STTClient init failed: %s", exc)
+            _stt_client = _UNAVAILABLE
+    return _stt_client if _stt_client is not _UNAVAILABLE else None
+
+
 def _module_unavailable_response(module_name: str) -> Dict[str, str]:
     return {"error": f"Module {module_name} not available yet"}
 
@@ -335,20 +364,19 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
 
     context = "\n\n".join(str(item.get("text", "")) for item in retrieval)
 
+    # Conversation memory: prior turns make the agent adapt to what the
+    # patient already said (symptoms, procedure, answers given).
+    history: List[Dict[str, Any]] = []
+    if conversation is not None:
+        try:
+            history = conversation.history(call_id)
+        except Exception:
+            history = []
+
     try:
         response_text = llm.generate(
-            transcript=transcript, context=context, greeting=is_greeting
+            transcript=transcript, context=context, history=history[-6:]
         )
-    except TypeError:
-        # Backwards-compat: older LLMClient without greeting kwarg
-        try:
-            response_text = llm.generate(transcript=transcript, context=context)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("LLM generate failed: %s", exc)
-            return JSONResponse(
-                status_code=503,
-                content=_module_unavailable_response("llm"),
-            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("LLM generate failed: %s", exc)
         return JSONResponse(
@@ -461,6 +489,72 @@ async def get_summary(req: SummaryRequest) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# /api/stt and /api/tts — voice pipeline
+# ---------------------------------------------------------------------------
+
+
+_STT_ALLOWED_SUFFIXES = {".webm", ".ogg", ".mp3", ".wav", ".m4a"}
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+
+
+@app.post("/api/stt")
+async def stt_endpoint(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """Transcribe an audio blob (webm/ogg/mp3/wav/m4a) via Groq Whisper."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in _STT_ALLOWED_SUFFIXES:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio type: {suffix}")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty audio body")
+
+    client = get_stt_client()
+    if client is None:
+        return JSONResponse(status_code=503, content=_module_unavailable_response("stt"))
+
+    started = time.perf_counter()
+    try:
+        text = client.transcribe(file.filename, data)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("STT transcribe failed: %s", exc)
+        return JSONResponse(status_code=503, content=_module_unavailable_response("stt"))
+
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    return {"text": text, "language": "es", "duration_ms": round(elapsed_ms, 1)}
+
+
+@app.post("/api/tts")
+async def tts_endpoint(req: TTSRequest) -> Any:
+    """Synthesize Colombian Spanish neural voice (edge-tts) as MP3 stream."""
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty text")
+
+    from fastapi.responses import StreamingResponse
+
+    try:
+        module = _safe_import("tts")
+        if module is None:
+            raise RuntimeError("tts module unavailable")
+
+        async def _gen():
+            async for chunk in module.stream_tts(text):
+                yield chunk
+
+        return StreamingResponse(_gen(), media_type="audio/mpeg")
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("TTS failed: %s", exc)
+        return JSONResponse(status_code=503, content=_module_unavailable_response("tts"))
+
+
+# ---------------------------------------------------------------------------
 # /admin endpoints
 # ---------------------------------------------------------------------------
 
@@ -493,6 +587,33 @@ def _scan_filesystem_documents() -> List[Dict[str, Any]]:
                 }
             )
     return documents
+
+
+@app.get("/admin/index/status")
+def index_status() -> Dict[str, Any]:
+    """Return the state of the vector index for the admin console pill.
+
+    Shape: ``{"n_documents": int, "n_chunks": int, "last_reindex": str|None}``.
+    """
+    store = get_admin_store()
+    if store is None:
+        return {"n_documents": 0, "n_chunks": 0, "last_reindex": None}
+    try:
+        docs = store.list_documents()
+        n_docs = len(docs)
+        n_chunks = 0
+        try:
+            n_chunks = store._collection.count()
+        except Exception:
+            n_chunks = 0
+        last = None
+        state_file = Path(os.environ.get("RAG_PERSIST_DIR", "backend/chroma")) / "chroma.sqlite3"
+        if state_file.is_file():
+            from datetime import datetime, timezone
+            last = datetime.fromtimestamp(state_file.stat().st_mtime, tz=timezone.utc).isoformat()
+        return {"n_documents": n_docs, "n_chunks": n_chunks, "last_reindex": last}
+    except Exception as exc:  # noqa: BLE001
+        return {"n_documents": 0, "n_chunks": 0, "last_reindex": None, "error": str(exc)}
 
 
 @app.get("/admin/documents")
