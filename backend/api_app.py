@@ -521,6 +521,18 @@ async def get_summary(req: SummaryRequest) -> Dict[str, Any]:
         )
 
 
+@app.get("/api/timeline/{call_id}")
+def get_timeline(call_id: str) -> Dict[str, Any]:
+    """Return the turn-by-turn history for a call (transcript/response/decision)."""
+    conversation = get_conversation_store()
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="call_id not found")
+    turns = conversation.history(call_id)
+    if not turns:
+        raise HTTPException(status_code=404, detail="call_id not found")
+    return {"call_id": call_id, "turns": turns}
+
+
 # ---------------------------------------------------------------------------
 # /api/stt and /api/tts — voice pipeline
 # ---------------------------------------------------------------------------
