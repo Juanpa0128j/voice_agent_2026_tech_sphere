@@ -40,6 +40,13 @@ class LLMClient:
     ) -> Dict[str, Any]:
         return self._call(messages, temperature=temperature, max_tokens=max_tokens)
 
+    def generate(self, transcript: str, context: str = "") -> str:
+        from backend.prompts import SYSTEM_PROMPT
+        messages = build_messages(SYSTEM_PROMPT, [{"role": "user", "content": transcript}],
+                                  context_docs=[context] if context else None)
+        result = self._call(messages, temperature=0.3, max_tokens=500)
+        return result.get("content", "")
+
 
 def build_messages(
     system_prompt: str,

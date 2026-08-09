@@ -1,0 +1,63 @@
+graph TB
+    subgraph Browser["Browser (Chrome es-CO)"]
+        STT[SpeechRecognition es-CO]
+        TTS[SpeechSynthesis es-CO]
+        UI[index.html / admin.html]
+    end
+
+    subgraph API["FastAPI :8000"]
+        ASSIST["/api/assist"]
+        METRICS["/api/metrics"]
+        ADMIN["/admin/upload, /delete, /list, /reindex"]
+        SUMMARY["/api/summary"]
+    end
+
+    subgraph Backend["Backend Python 3.11"]
+        PC[patient_context.py]
+        RAG[rag.py: BGE-M3 + ChromaDB]
+        PR[prompts.py: system + glossary]
+        LLM[llm.py: Groq client]
+        DEC[decision.py: classifier]
+        CONV[conversation.py: state machine]
+        SUM[summary.py: structured summary]
+        MET[metrics.py: P50/P95/cost]
+    end
+
+    subgraph External["External Services"]
+        GROQ[Groq Cloud: Llama 3.3 70B]
+        CHROMA[(ChromaDB PersistentClient<br/>backend/chroma/)]
+        WEBHOOK[ALERT_WEBHOOK_URL]
+    end
+
+    subgraph Data["Dataset (vendored)"]
+        PDFS[107 PDFs clínicos]
+        XLSX[perfiles + trayectorias xlsx]
+    end
+
+    STT -->|transcript| ASSIST
+    ASSIST --> PC
+    PC --> XLSX
+    ASSIST --> RAG
+    RAG --> CHROMA
+    ASSIST --> PR
+    ASSIST --> LLM
+    LLM -->|HTTPS| GROQ
+    LLM -->|response| DEC
+    DEC -->|decision| ASSIST
+    ASSIST --> CONV
+    ASSIST --> MET
+    DEC -->|rojo/amarillo| WEBHOOK
+    ASSIST -->|response + decision| UI
+    UI --> TTS
+    ASSIST --> METRICS
+    METRICS --> MET
+    ADMIN --> RAG
+    ADMIN --> PDFS
+    SUMMARY --> SUM
+    CONV --> ASSIST
+    PDFS -.indexed once.-> CHROMA
+
+    style GROQ fill:#fef3c7
+    style CHROMA fill:#dbeafe
+    style WEBHOOK fill:#fecaca
+    style DEC fill:#dcfce7

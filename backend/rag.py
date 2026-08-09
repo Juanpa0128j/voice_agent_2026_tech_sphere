@@ -75,3 +75,38 @@ def retrieve_context(
 ) -> List[Dict]:
     results = store.query(query, k=k)
     return [r for r in results if r.get("score", 0.0) >= score_threshold]
+
+
+def _list_documents(self):
+    try:
+        results = self.collection.get(include=["metadatas"])
+        seen = {}
+        for mid, meta in zip(results.get("ids", []), results.get("metadatas", [])):
+            doc_id = (meta or {}).get("doc_id", mid)
+            if doc_id not in seen:
+                seen[doc_id] = {
+                    "doc_id": doc_id,
+                    "source": (meta or {}).get("source", doc_id),
+                    "name": (meta or {}).get("name", doc_id),
+                }
+        return list(seen.values())
+    except Exception:
+        return []
+
+
+def _retrieve_facade(self, query_text: str, k: int = 5):
+    return self.query(query_text, k=k)
+
+
+def _add_document_facade(self, doc_id: str, text: str, metadata: dict = None):
+    meta = metadata or {}
+    return self.add_documents([{
+        "id": doc_id,
+        "text": text,
+        "source": meta.get("source", doc_id),
+    }])
+
+
+RAGStore.list_documents = _list_documents
+RAGStore.retrieve = _retrieve_facade
+RAGStore.add_document = _add_document_facade

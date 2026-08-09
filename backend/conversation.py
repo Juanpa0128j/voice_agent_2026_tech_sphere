@@ -252,3 +252,19 @@ def format_long_instructions(text: str) -> List[str]:
         else:
             steps.append(chunk)
     return steps
+
+
+class ConversationStore:
+    """Adapter for api_app.py: stores turn-by-turn history per call_id."""
+    def __init__(self):
+        self._store: Dict[str, List[Dict]] = {}
+
+    def append(self, call_id: str, transcript: str, response: str, decision: dict) -> None:
+        self._store.setdefault(call_id, []).append({
+            "transcript": transcript,
+            "response": response,
+            "decision": decision,
+        })
+
+    def history(self, call_id: str) -> List[Dict]:
+        return self._store.get(call_id, [])

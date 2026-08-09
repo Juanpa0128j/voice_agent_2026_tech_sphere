@@ -153,3 +153,29 @@ def save_summary(summary: CallSummary, dir_path: str) -> Path:
 
 def load_summary(path: Path) -> Dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+class SummaryService:
+    """Adapter for api_app.py: generates + persists call summaries."""
+    def __init__(self, calls_dir: str = "backend/calls"):
+        from pathlib import Path
+        self.calls_dir = Path(calls_dir)
+        self.calls_dir.mkdir(parents=True, exist_ok=True)
+        self._cache: Dict[str, Dict] = {}
+
+    def summarize(self, call_id: str) -> Dict[str, Any]:
+        if call_id in self._cache:
+            return self._cache[call_id]
+        for path in self.calls_dir.glob(f"{call_id}.json"):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self._cache[call_id] = data
+            return data
+        raise KeyError(call_id)
+
+    def save(self, summary_dict: Dict[str, Any]) -> str:
+        call_id = summary_dict.get("call_id") or uuid.uuid4().hex
+        summary_dict["call_id"] = call_id
+        path = self.calls_dir / f"{call_id}.json"
+        path.write_text(json.dumps(summary_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._cache[call_id] = summary_dict
+        return call_id

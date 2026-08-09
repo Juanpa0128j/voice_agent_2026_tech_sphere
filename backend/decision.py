@@ -246,3 +246,18 @@ def attach_provenance(response: str, sources: List[Dict[str, Any]]) -> Dict[str,
         "response": response,
         "provenance": sources,
     }
+
+
+class DecisionEngine:
+    """Adapter class exposing the .decide() interface used by api_app.py."""
+
+    def decide(self, transcript: str, retrieval: List[Dict] = None, response: str = "") -> Dict[str, Any]:
+        text = transcript or ""
+        result = decide_from_text(text)
+        result["action"] = "respond"
+        if result["label"] == "rojo":
+            result["action"] = "alert"
+        elif result["label"] == "amarillo":
+            result["action"] = "warn"
+        result["reason"] = result.get("rationale", "")
+        return result
