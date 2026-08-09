@@ -19,10 +19,12 @@ COPY dataset/ /app/dataset/
 ENV PYTHONUNBUFFERED=1
 ENV RAG_PERSIST_DIR=/app/backend/chroma
 
-# Index PDFs into ChromaDB at build time
-RUN python backend/embedding_example.py --input-dir dataset/textos --chroma-dir backend/chroma || echo "WARN: indexing failed, will retry on startup"
+# NOTE: PDF indexing is NOT done at build time (would take ~90 min on CPU).
+# The agent works without indexed PDFs; the LLM alone is sufficient for the demo.
+# To enable RAG: docker compose run --rm backend python backend/embedding_example.py \
+#   --input-dir dataset/textos --chroma-dir backend/chroma
+# Or use the /admin/upload endpoint to add documents at runtime.
 
 EXPOSE 8000
 
-# On startup: ensure index exists, then start server
-CMD ["sh", "-c", "python backend/embedding_example.py --input-dir dataset/textos --chroma-dir backend/chroma 2>/dev/null; uvicorn backend.api_app:app --host 0.0.0.0 --port 8000"]
+CMD ["uvicorn", "backend.api_app:app", "--host", "0.0.0.0", "--port", "8000"]
