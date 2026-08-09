@@ -403,7 +403,14 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         decision_payload = decision.decide(transcript, retrieval, response_text)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Decision engine failed: %s", exc)
-        decision_payload = {"action": "respond", "reason": "fallback"}
+        decision_payload = {
+            "label": "verde",
+            "score": 0,
+            "rationale": "No se pudo evaluar automáticamente",
+            "alert": False,
+            "action": "respond",
+            "reason": "fallback",
+        }
 
     patient_payload: Optional[Dict[str, Any]] = None
     if req.paciente_id:

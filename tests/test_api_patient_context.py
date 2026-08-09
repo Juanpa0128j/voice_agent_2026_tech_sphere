@@ -12,11 +12,11 @@ def test_assist_includes_patient_context_when_paciente_id_known():
     assert resp.status_code == 200
     body = resp.json()
     assert "patient" in body
-    if body["patient"] is not None:
-        assert set(body["patient"].keys()) == {
-            "paciente_id", "nombre", "procedimiento",
-            "dia_postoperatorio", "comorbilidades", "eps",
-        }
+    assert body["patient"] is not None
+    assert set(body["patient"].keys()) == {
+        "paciente_id", "nombre", "procedimiento",
+        "dia_postoperatorio", "comorbilidades", "eps",
+    }
 
 
 def test_assist_patient_is_none_when_paciente_id_missing():

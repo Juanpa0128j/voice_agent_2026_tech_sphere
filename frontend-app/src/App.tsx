@@ -1,5 +1,4 @@
 // frontend-app/src/App.tsx
-import { useState } from "react";
 import { PatientCard } from "./components/PatientCard";
 import { RecoveryStatus } from "./components/RecoveryStatus";
 import { VoiceVisualizer } from "./components/VoiceVisualizer";
@@ -24,16 +23,16 @@ export default function App() {
     stopAndSend,
     callId,
   } = useVoiceCall(DEFAULT_PACIENTE_ID);
-  const [recording, setRecording] = useState(false);
+  const recording = state === "listening";
 
-  const symptoms = turns.map((t) => t.decision.rationale).filter(Boolean);
+  const symptoms = Array.from(
+    new Set(turns.map((t) => t.decision.rationale).filter(Boolean)),
+  );
 
   const handleMicClick = async () => {
     if (!recording) {
       await startListening();
-      setRecording(true);
     } else {
-      setRecording(false);
       await stopAndSend();
     }
   };
@@ -63,7 +62,7 @@ export default function App() {
         <ActionButtons
           escalationRequired={decision?.label === "rojo"}
           onEscalate={() => alert("Escalado a profesional de salud (demo)")}
-          onContinue={() => {}}
+          onContinue={() => startListening()}
           onFollowUp={handleMicClick}
           onReport={() =>
             postSummary(callId).then((s) => console.log("summary", s))

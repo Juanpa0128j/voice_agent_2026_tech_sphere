@@ -6,7 +6,8 @@ client = TestClient(app)
 
 def test_timeline_returns_turns_after_assist_calls():
     call_id = "timeline-test-call"
-    client.post("/api/assist", json={"transcript": "hola, me duele", "call_id": call_id})
+    seed_resp = client.post("/api/assist", json={"transcript": "hola, me duele", "call_id": call_id})
+    assert seed_resp.status_code == 200
 
     resp = client.get(f"/api/timeline/{call_id}")
     assert resp.status_code == 200

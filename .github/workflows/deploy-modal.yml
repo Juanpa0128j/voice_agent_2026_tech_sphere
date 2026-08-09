@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "frontend/**"
+      - "frontend-app/**"
       - "modal_app.py"
 
 jobs:
@@ -15,6 +16,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Build frontend
+        run: |
+          cd frontend-app
+          pnpm install --frozen-lockfile
+          pnpm build
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
