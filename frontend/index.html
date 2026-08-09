@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voice Agent Demo</title>
+</head>
+<body>
+  <h1>Voice Agent (Demo)</h1>
+  <p>Status: <span id="status">idle</span></p>
+  <button id="startBtn">Start Call</button>
+  <button id="stopBtn" disabled>End Call</button>
+  <div>
+    <h3>Transcript</h3>
+    <pre id="transcript"></pre>
+  </div>
+  <script>
+    const statusEl = document.getElementById('status')
+    const startBtn = document.getElementById('startBtn')
+    const stopBtn = document.getElementById('stopBtn')
+    const transcriptEl = document.getElementById('transcript')
+
+    let recognition
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      statusEl.textContent = 'Speech Recognition not supported in this browser (use Chrome).'
+      startBtn.disabled = true
+    } else {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+      recognition = new SR()
+      recognition.lang = 'es-CO'
+      recognition.interimResults = true
+      recognition.onstart = () => { statusEl.textContent = 'listening' }
+      recognition.onend = () => { statusEl.textContent = 'idle'; stopBtn.disabled=true; startBtn.disabled=false }
+      recognition.onresult = (ev) => {
+        let text = ''
+        for (let i=0;i<ev.results.length;i++) {
+          text += ev.results[i][0].transcript
+        }
+        transcriptEl.textContent = text
+      }
+    }
+
+    startBtn.onclick = () => {
+      recognition.start()
+      startBtn.disabled = true
+      stopBtn.disabled = false
+      statusEl.textContent = 'starting'
+    }
+    stopBtn.onclick = () => {
+      recognition.stop()
+    }
+
+    // Simple TTS helper
+    function speak(text) {
+      if (!('speechSynthesis' in window)) return
+      const u = new SpeechSynthesisUtterance(text)
+      u.lang = 'es-CO'
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(u)
+    }
+  </script>
+</body>
+</html>
