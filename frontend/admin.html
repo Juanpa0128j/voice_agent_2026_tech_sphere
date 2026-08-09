@@ -2,33 +2,742 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Admin Console - Knowledge</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Consola de administración de la base de conocimiento">
+  <title>Consola de Administración - Conocimiento</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #f0f4f9;
+      --border: #d9e2ec;
+      --text: #102a43;
+      --text-muted: #627d98;
+      --primary: #1f6feb;
+      --primary-hover: #1858c4;
+      --primary-soft: #e6efff;
+      --danger: #c53030;
+      --danger-soft: #fdecec;
+      --ok: #2f855a;
+      --ok-soft: #e6f6ec;
+      --warn: #b7791f;
+      --shadow: 0 1px 2px rgba(16, 42, 67, 0.06), 0 8px 24px rgba(16, 42, 67, 0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 24px 20px 40px;
+    }
+    header.app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      display: grid; place-items: center;
+      font-weight: 700;
+    }
+    h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+    h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+    .sub { color: var(--text-muted); font-size: 13px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+    .card + .card { margin-top: 16px; }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .pill[data-state="ok"] { color: var(--ok); background: var(--ok-soft); border-color: #b9e3c7; }
+    .pill[data-state="warn"] { color: var(--warn); background: #fff7e6; border-color: #f5d796; }
+    .pill[data-state="error"] { color: var(--danger); background: var(--danger-soft); border-color: #f5b7b7; }
+    button {
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+    }
+    button:focus-visible { outline: 3px solid #9ec2ff; outline-offset: 2px; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--primary); color: #fff;
+      box-shadow: 0 1px 2px rgba(31, 111, 235, 0.3), 0 6px 16px rgba(31, 111, 235, 0.18);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+    .btn-secondary {
+      background: var(--surface); color: var(--text); border-color: var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+    .btn-danger {
+      background: var(--surface); color: var(--danger); border-color: #f0c4c4;
+    }
+    .btn-danger:hover:not(:disabled) { background: var(--danger-soft); }
+    .icon-btn {
+      background: transparent; border: 1px solid transparent;
+      padding: 4px 8px; font-size: 16px; color: var(--text-muted);
+      border-radius: 8px;
+    }
+    .icon-btn:hover { background: var(--surface-2); }
+    .upload-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .file-input {
+      position: relative;
+      flex: 1 1 280px;
+      min-width: 0;
+    }
+    .file-input input[type="file"] {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0);
+      white-space: nowrap; border: 0;
+    }
+    .file-input label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-muted);
+      min-height: 42px;
+    }
+    .file-input label:hover { background: #e7eef7; }
+    .file-input.has-file label {
+      border-style: solid;
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      color: var(--text);
+    }
+    .file-input .file-name { color: var(--text); font-weight: 500; }
+    .upload-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .upload-result {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--ok-soft);
+      color: var(--ok);
+      border: 1px solid #b9e3c7;
+    }
+    .badge.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: #f5b7b7;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      margin: 0 -4px;
+    }
+    table.docs {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 14px;
+    }
+    table.docs th, table.docs td {
+      text-align: left;
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.docs th {
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      position: sticky; top: 0;
+    }
+    table.docs th:first-child { border-top-left-radius: var(--radius-sm); }
+    table.docs th:last-child { border-top-right-radius: var(--radius-sm); }
+    table.docs tr:last-child td { border-bottom: 0; }
+    table.docs td .doc-name { font-weight: 500; }
+    table.docs td .doc-sub { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+    table.docs td.col-actions { text-align: right; white-space: nowrap; }
+    .empty-row {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 28px 12px !important;
+      font-size: 14px;
+    }
+    .toast-wrap {
+      position: fixed;
+      top: 16px; right: 16px;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: calc(100vw - 32px);
+    }
+    .toast {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      min-width: 240px;
+    }
+    .toast.info { border-left-color: var(--primary); }
+    .toast.ok { border-left-color: var(--ok); }
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(16, 42, 67, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      max-width: 460px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(16, 42, 67, 0.25);
+    }
+    .modal header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal h2 { margin: 0; font-size: 17px; font-weight: 600; }
+    .modal .body { padding: 20px; font-size: 15px; }
+    .modal footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .progress {
+      flex: 1 1 100%;
+      height: 4px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress > div {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      transition: width 0.2s ease;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0);
+      white-space: nowrap; border: 0;
+    }
+    @media (max-width: 600px) {
+      .app { padding: 16px 12px 32px; }
+      .card { padding: 16px; }
+      h1 { font-size: 18px; }
+      table.docs th, table.docs td { padding: 10px 8px; }
+      .upload-row { flex-direction: column; align-items: stretch; }
+      .upload-row .btn-primary { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Admin Console (Knowledge)</h1>
-  <p>Upload a PDF to add to the knowledge base (this is a demo UI; server endpoints must be implemented).</p>
-  <form id="uploadForm" enctype="multipart/form-data">
-    <input type="file" name="file" accept="application/pdf" />
-    <button>Upload</button>
-  </form>
-  <div id="status"></div>
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⚙</div>
+        <div>
+          <h1>Consola de Administración - Conocimiento</h1>
+          <div class="sub">Gestiona los documentos del agente de seguimiento</div>
+        </div>
+      </div>
+      <a class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center" href="index.html">Volver al agente</a>
+    </header>
+
+    <section class="card" aria-labelledby="index-heading">
+      <h2 id="index-heading">Estado del índice vectorial</h2>
+      <div class="status-row">
+        <span class="pill" id="indexPill" data-state="warn" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="indexText">Cargando...</span>
+        </span>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="upload-heading">
+      <h2 id="upload-heading">Subir documento</h2>
+      <form id="uploadForm" novalidate>
+        <div class="upload-row">
+          <div class="file-input" id="fileInputWrap">
+            <label for="fileInput">
+              <span aria-hidden="true">📄</span>
+              <span id="fileLabelText" class="file-name">Seleccionar archivo PDF...</span>
+            </label>
+            <input type="file" id="fileInput" name="file" accept="application/pdf,.pdf" required>
+          </div>
+          <button class="btn-primary" type="submit" id="uploadBtn">Subir y procesar</button>
+        </div>
+        <div class="upload-hint">Solo se aceptan archivos PDF. Tamaño máximo recomendado: 25 MB.</div>
+        <div class="progress" id="uploadProgress" hidden aria-hidden="true"><div></div></div>
+        <div class="upload-result" id="uploadResult" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="docs-heading">
+      <h2 id="docs-heading">Documentos</h2>
+      <div class="table-wrap">
+        <table class="docs" id="docsTable">
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Origen</th>
+              <th scope="col">Fecha de carga</th>
+              <th scope="col" class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="docsBody">
+            <tr><td colspan="4" class="empty-row">Cargando documentos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast-wrap" id="toasts" aria-live="assertive" aria-atomic="false"></div>
+
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="modal">
+      <header>
+        <h2 id="confirmTitle">Eliminar documento</h2>
+        <button class="icon-btn" type="button" id="confirmClose" aria-label="Cerrar">&times;</button>
+      </header>
+      <div class="body">
+        <p id="confirmMessage">¿Estás seguro de que quieres eliminar este documento?</p>
+        <p class="sub">Esta acción no se puede deshacer.</p>
+      </div>
+      <footer>
+        <button class="btn-secondary" type="button" id="confirmCancel">Cancelar</button>
+        <button class="btn-danger" type="button" id="confirmOk">Eliminar</button>
+      </footer>
+    </div>
+  </div>
+
   <script>
-    document.getElementById('uploadForm').onsubmit = async (e) => {
-      e.preventDefault()
-      const f = e.target.file.files[0]
-      if (!f) return
-      const fd = new FormData()
-      fd.append('file', f)
-      document.getElementById('status').textContent = 'Uploading... (demo only)'
-      try {
-        const res = await fetch('/admin/upload', {method:'POST', body: fd})
-        const j = await res.json()
-        document.getElementById('status').textContent = 'Uploaded: ' + JSON.stringify(j)
-      } catch (err) {
-        document.getElementById('status').textContent = 'Error (no backend implemented in demo environment)'
+    (function () {
+      "use strict";
+
+      const els = {
+        uploadForm: document.getElementById("uploadForm"),
+        fileInput: document.getElementById("fileInput"),
+        fileInputWrap: document.getElementById("fileInputWrap"),
+        fileLabelText: document.getElementById("fileLabelText"),
+        uploadBtn: document.getElementById("uploadBtn"),
+        uploadResult: document.getElementById("uploadResult"),
+        uploadProgress: document.getElementById("uploadProgress"),
+        progressBar: document.querySelector("#uploadProgress > div"),
+        indexPill: document.getElementById("indexPill"),
+        indexText: document.getElementById("indexText"),
+        docsBody: document.getElementById("docsBody"),
+        toasts: document.getElementById("toasts"),
+        confirmModal: document.getElementById("confirmModal"),
+        confirmMessage: document.getElementById("confirmMessage"),
+        confirmOk: document.getElementById("confirmOk"),
+        confirmCancel: document.getElementById("confirmCancel"),
+        confirmClose: document.getElementById("confirmClose")
+      };
+
+      const state = {
+        pendingDelete: null
+      };
+
+      function toast(message, kind) {
+        const el = document.createElement("div");
+        el.className = "toast" + (kind ? " " + kind : "");
+        el.textContent = message;
+        els.toasts.appendChild(el);
+        setTimeout(() => {
+          el.style.opacity = "0";
+          el.style.transition = "opacity 0.3s ease";
+          setTimeout(() => el.remove(), 300);
+        }, 5000);
       }
-    }
+
+      function formatBytes(n) {
+        if (n == null) return "";
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+        return (n / (1024 * 1024)).toFixed(1) + " MB";
+      }
+
+      function formatDate(value) {
+        if (!value) return "—";
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return String(value);
+        return d.toLocaleString("es-CO", {
+          year: "numeric", month: "short", day: "2-digit",
+          hour: "2-digit", minute: "2-digit"
+        });
+      }
+
+      function setFileLabel(file) {
+        if (file) {
+          els.fileInputWrap.classList.add("has-file");
+          els.fileLabelText.textContent = file.name + " (" + formatBytes(file.size) + ")";
+        } else {
+          els.fileInputWrap.classList.remove("has-file");
+          els.fileLabelText.textContent = "Seleccionar archivo PDF...";
+        }
+      }
+
+      function setIndexStatus(info) {
+        if (!info) {
+          els.indexPill.setAttribute("data-state", "warn");
+          els.indexText.textContent = "Sin información del índice";
+          return;
+        }
+        const n = info.n_documents != null ? info.n_documents : (info.count != null ? info.count : 0);
+        const last = info.last_reindex || info.last_reindex_at || info.updated_at;
+        els.indexPill.setAttribute("data-state", "ok");
+        const parts = [n + " documento" + (n === 1 ? "" : "s")];
+        if (last) parts.push("último reindex: " + formatDate(last));
+        els.indexText.textContent = parts.join(" · ");
+      }
+
+      function renderDocs(docs) {
+        els.docsBody.innerHTML = "";
+        if (!docs || !docs.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 4;
+          td.className = "empty-row";
+          td.textContent = "No hay documentos cargados aún.";
+          tr.appendChild(td);
+          els.docsBody.appendChild(tr);
+          return;
+        }
+        docs.forEach(d => {
+          const tr = document.createElement("tr");
+          tr.dataset.docId = d.id || d.doc_id || "";
+
+          const tdName = document.createElement("td");
+          const nameEl = document.createElement("div");
+          nameEl.className = "doc-name";
+          nameEl.textContent = d.name || d.filename || d.title || "Documento sin nombre";
+          tdName.appendChild(nameEl);
+          if (d.id) {
+            const sub = document.createElement("div");
+            sub.className = "doc-sub";
+            sub.textContent = "ID: " + d.id;
+            tdName.appendChild(sub);
+          }
+          tr.appendChild(tdName);
+
+          const tdSrc = document.createElement("td");
+          tdSrc.textContent = d.source || d.origen || "—";
+          tr.appendChild(tdSrc);
+
+          const tdDate = document.createElement("td");
+          tdDate.textContent = formatDate(d.date_added || d.created_at || d.uploaded_at);
+          tr.appendChild(tdDate);
+
+          const tdAct = document.createElement("td");
+          tdAct.className = "col-actions";
+          const del = document.createElement("button");
+          del.type = "button";
+          del.className = "btn-danger";
+          del.textContent = "Eliminar";
+          del.setAttribute("aria-label", "Eliminar " + (d.name || "documento"));
+          del.addEventListener("click", () => openConfirm(d));
+          tdAct.appendChild(del);
+          tr.appendChild(tdAct);
+
+          els.docsBody.appendChild(tr);
+        });
+      }
+
+      async function loadIndexStatus() {
+        try {
+          const res = await fetch("/admin/index/status");
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          setIndexStatus(data);
+        } catch (err) {
+          els.indexPill.setAttribute("data-state", "error");
+          els.indexText.textContent = "No se pudo cargar el estado del índice";
+        }
+      }
+
+      async function loadDocs() {
+        try {
+          const res = await fetch("/admin/documents");
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.documents || data.items || []);
+          renderDocs(list);
+        } catch (err) {
+          els.docsBody.innerHTML = "";
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 4;
+          td.className = "empty-row";
+          td.textContent = "No se pudieron cargar los documentos.";
+          tr.appendChild(td);
+          els.docsBody.appendChild(tr);
+          toast("Error al listar documentos", "error");
+        }
+      }
+
+      function setProgress(pct) {
+        if (pct == null) {
+          els.uploadProgress.hidden = true;
+          els.progressBar.style.width = "0%";
+          return;
+        }
+        els.uploadProgress.hidden = false;
+        els.progressBar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+      }
+
+      function clearUploadResult() {
+        els.uploadResult.innerHTML = "";
+      }
+
+      function showUploadSuccess(doc) {
+        clearUploadResult();
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.innerHTML = '<span aria-hidden="true">✓</span> Procesado y disponible';
+        els.uploadResult.appendChild(badge);
+        if (doc && (doc.name || doc.id)) {
+          const meta = document.createElement("span");
+          meta.className = "sub";
+          const bits = [];
+          if (doc.name) bits.push(doc.name);
+          if (doc.id) bits.push("ID: " + doc.id);
+          meta.textContent = bits.join(" · ");
+          els.uploadResult.appendChild(meta);
+        }
+      }
+
+      function showUploadError(message) {
+        clearUploadResult();
+        const badge = document.createElement("span");
+        badge.className = "badge error";
+        badge.innerHTML = '<span aria-hidden="true">⚠</span> ' + message;
+        els.uploadResult.appendChild(badge);
+      }
+
+      function uploadWithProgress(formData, onProgress) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/admin/upload");
+          xhr.responseType = "json";
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable && onProgress) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+          xhr.onload = () => {
+            const body = xhr.response;
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(body || {});
+            } else {
+              const detail = (body && (body.detail || body.error || body.message)) || ("HTTP " + xhr.status);
+              reject(new Error(detail));
+            }
+          };
+          xhr.onerror = () => reject(new Error("Error de red al subir el archivo"));
+          xhr.onabort = () => reject(new Error("Subida cancelada"));
+          xhr.send(formData);
+        });
+      }
+
+      async function handleUpload(e) {
+        e.preventDefault();
+        clearUploadResult();
+        const file = els.fileInput.files[0];
+        if (!file) {
+          showUploadError("Selecciona un archivo PDF antes de subir.");
+          els.fileInput.focus();
+          return;
+        }
+        const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+        if (!isPdf) {
+          showUploadError("Solo se aceptan archivos PDF.");
+          return;
+        }
+        if (file.size > 25 * 1024 * 1024) {
+          showUploadError("El archivo supera el tamaño máximo de 25 MB.");
+          return;
+        }
+        const fd = new FormData();
+        fd.append("file", file);
+        els.uploadBtn.disabled = true;
+        setProgress(0);
+        try {
+          const data = await uploadWithProgress(fd, setProgress);
+          showUploadSuccess(data && (data.document || data));
+          toast("Documento procesado y disponible", "ok");
+          setFileLabel(null);
+          els.fileInput.value = "";
+          await Promise.all([loadDocs(), loadIndexStatus()]);
+        } catch (err) {
+          console.error(err);
+          showUploadError(err && err.message ? err.message : "Error al subir el documento");
+          toast("Error al subir el documento", "error");
+        } finally {
+          els.uploadBtn.disabled = false;
+          setTimeout(() => setProgress(null), 600);
+        }
+      }
+
+      function openConfirm(doc) {
+        state.pendingDelete = doc;
+        const name = (doc && (doc.name || doc.filename)) || "este documento";
+        els.confirmMessage.textContent = '¿Eliminar "' + name + '"?';
+        els.confirmModal.hidden = false;
+        els.confirmModal.classList.add("open");
+        setTimeout(() => els.confirmOk.focus(), 30);
+      }
+      function closeConfirm() {
+        els.confirmModal.classList.remove("open");
+        els.confirmModal.hidden = true;
+        state.pendingDelete = null;
+      }
+
+      async function performDelete() {
+        const doc = state.pendingDelete;
+        if (!doc) return;
+        const id = doc.id || doc.doc_id;
+        if (!id) {
+          toast("El documento no tiene un ID válido", "error");
+          closeConfirm();
+          return;
+        }
+        els.confirmOk.disabled = true;
+        try {
+          const res = await fetch("/admin/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ doc_id: id })
+          });
+          if (!res.ok) {
+            let detail = "HTTP " + res.status;
+            try {
+              const j = await res.json();
+              detail = (j && (j.detail || j.error || j.message)) || detail;
+            } catch (_) {}
+            throw new Error(detail);
+          }
+          toast("Documento eliminado", "ok");
+          await Promise.all([loadDocs(), loadIndexStatus()]);
+        } catch (err) {
+          console.error(err);
+          toast("Error al eliminar: " + (err && err.message ? err.message : "intente de nuevo"), "error");
+        } finally {
+          els.confirmOk.disabled = false;
+          closeConfirm();
+        }
+      }
+
+      function bind() {
+        els.uploadForm.addEventListener("submit", handleUpload);
+        els.fileInput.addEventListener("change", () => {
+          setFileLabel(els.fileInput.files[0]);
+          clearUploadResult();
+        });
+        els.confirmOk.addEventListener("click", performDelete);
+        els.confirmCancel.addEventListener("click", closeConfirm);
+        els.confirmClose.addEventListener("click", closeConfirm);
+        els.confirmModal.addEventListener("click", (e) => {
+          if (e.target === els.confirmModal) closeConfirm();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && !els.confirmModal.hidden) closeConfirm();
+        });
+      }
+
+      function init() {
+        bind();
+        loadIndexStatus();
+        loadDocs();
+      }
+
+      init();
+    })();
   </script>
 </body>
 </html>
