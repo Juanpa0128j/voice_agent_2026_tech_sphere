@@ -30,13 +30,17 @@ uploads_volume = modal.Volume.from_name("voice-agent-uploads", create_if_missing
 CHROMA_MOUNT = "/vol/chroma"
 UPLOADS_MOUNT = "/vol/uploads"
 
+# NOTE: run `cd frontend-app && pnpm build` before `modal deploy` — this
+# bakes frontend-app/dist/ into the image; admin.html still ships from the
+# old frontend/ dir separately (see below), only index.html is replaced.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("build-essential")
     .pip_install_from_requirements("backend/requirements.txt")
     .add_local_dir("backend", remote_path="/app/backend", copy=True)
     .add_local_dir("dataset", remote_path="/app/dataset", copy=True)
-    .add_local_dir("frontend", remote_path="/app/frontend", copy=True)
+    .add_local_dir("frontend-app/dist", remote_path="/app/frontend", copy=True)
+    .add_local_file("frontend/admin.html", remote_path="/app/frontend/admin.html", copy=True)
     .env(
         {
             "RAG_PERSIST_DIR": CHROMA_MOUNT,
