@@ -41,3 +41,24 @@ export interface TimelineResponse {
   call_id: string;
   turns: TimelineTurn[];
 }
+
+export interface SummarySource {
+  id: string;
+  excerpt: string;
+}
+
+export interface CallSummary {
+  call_id: string;
+  paciente_id: string;
+  nombre: string;
+  procedimiento: string;
+  dia_postoperatorio: number;
+  sintomas_reportados: string[];
+  decision: string;
+  fuentes: SummarySource[];
+  proximos_pasos: string[];
+  alerta_enviada: boolean;
+  timestamp: string;
+  duracion?: string;
+  mensajes?: number;
+}

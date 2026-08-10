@@ -4,7 +4,7 @@ Pure stdlib logic: turn-by-turn call history storage. No LLM calls.
 """
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 class ConversationStore:
@@ -12,11 +12,19 @@ class ConversationStore:
     def __init__(self):
         self._store: Dict[str, List[Dict]] = {}
 
-    def append(self, call_id: str, transcript: str, response: str, decision: dict) -> None:
+    def append(
+        self,
+        call_id: str,
+        transcript: str,
+        response: str,
+        decision: dict,
+        retrieval: Optional[List[Dict]] = None,
+    ) -> None:
         self._store.setdefault(call_id, []).append({
             "transcript": transcript,
             "response": response,
             "decision": decision,
+            "retrieval": retrieval or [],
         })
 
     def history(self, call_id: str) -> List[Dict]:

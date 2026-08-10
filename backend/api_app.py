@@ -123,6 +123,10 @@ class AssistResponse(BaseModel):
 
 class SummaryRequest(BaseModel):
     call_id: str = Field(..., description="Call/session id to summarize")
+    paciente_id: Optional[str] = Field(
+        default=None,
+        description="Optional patient id used to enrich the summary with clinical context",
+    )
 
 
 class DeleteRequest(BaseModel):
@@ -431,7 +435,7 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
 
     if conversation is not None and not is_greeting:
         try:
-            conversation.append(call_id, transcript, response_text, decision_payload)
+            conversation.append(call_id, transcript, response_text, decision_payload, retrieval)
         except Exception as exc:  # noqa: BLE001
             logger.debug("ConversationStore append failed: %s", exc)
 
@@ -510,14 +514,39 @@ async def get_summary(req: SummaryRequest) -> Dict[str, Any]:
             turns.append({"role": "user", "content": h.get("transcript", "")})
             turns.append({"role": "assistant", "content": h.get("response", "")})
         decision = history[-1].get("decision", {}) if history else {}
+
+        paciente_id = req.paciente_id or "unknown"
+        nombre = ""
+        procedimiento = ""
+        dia_postoperatorio = 0
+        if req.paciente_id:
+            try:
+                from backend.patient_context import load_patient_context
+                ctx = load_patient_context(req.paciente_id)
+                if ctx is not None:
+                    nombre = ctx.nombre
+                    procedimiento = ctx.procedimiento
+                    dia_postoperatorio = ctx.dia_postoperatorio
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("patient_context load failed in summary: %s", exc)
+
+        seen_sources = set()
+        sources: List[Dict[str, Any]] = []
+        for h in history:
+            for item in h.get("retrieval", []) or []:
+                src = item.get("source")
+                if src and src not in seen_sources:
+                    seen_sources.add(src)
+                    sources.append({"id": src, "excerpt": (item.get("text") or "")[:200]})
+
         summary = generate_summary(
-            paciente_id="unknown",
-            nombre="",
-            procedimiento="",
-            dia_postoperatorio=0,
+            paciente_id=paciente_id,
+            nombre=nombre,
+            procedimiento=procedimiento,
+            dia_postoperatorio=dia_postoperatorio,
             turns=turns,
             decision=decision,
-            sources=[],
+            sources=sources,
         )
         summary["call_id"] = req.call_id
         summary["timestamp"] = datetime.now(timezone.utc).isoformat()
@@ -624,6 +653,42 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _resolve_source_path(raw: str) -> Optional[Path]:
+    """Resolve a RAG ``source``/``doc_id`` string to a real file on disk.
+
+    Guards against path traversal: the resolved path must stay inside
+    ``DATA_DIR`` or ``UPLOAD_DIR``. ``source``/``doc_id`` values come from
+    different call sites with slightly different shapes (plain relative
+    path, ``uploaded/...`` prefix, or a full ``dataset/textos_uploaded/...``
+    path), so try each plausible interpretation.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+
+    candidates: List[tuple] = []
+    if raw.startswith("uploaded/"):
+        candidates.append((UPLOAD_DIR, raw[len("uploaded/"):]))
+    candidates.append((DATA_DIR, raw))
+    candidates.append((UPLOAD_DIR, raw))
+    for prefix, root in (
+        (DATA_DIR.as_posix() + "/", DATA_DIR),
+        (UPLOAD_DIR.as_posix() + "/", UPLOAD_DIR),
+    ):
+        if raw.startswith(prefix):
+            candidates.append((root, raw[len(prefix):]))
+
+    for root, rel in candidates:
+        try:
+            root_resolved = root.resolve()
+            candidate = (root / rel).resolve()
+            if candidate.is_relative_to(root_resolved) and candidate.is_file():
+                return candidate
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
 def _scan_filesystem_documents() -> List[Dict[str, Any]]:
     """Fallback listing when the RAG store does not expose ``list``."""
     documents: List[Dict[str, Any]] = []
@@ -646,6 +711,21 @@ def _scan_filesystem_documents() -> List[Dict[str, Any]]:
                 }
             )
     return documents
+
+
+@app.get("/api/source/{doc_id:path}")
+def get_source_file(doc_id: str) -> Any:
+    """Serve a source document's raw file so the frontend can link to it.
+
+    ``doc_id`` matches either a RAG ``retrieval[].source`` value or an
+    ``/admin/documents`` ``doc_id`` value. 404 when it can't be resolved to
+    a real file inside the allowed data/upload directories.
+    """
+    path = _resolve_source_path(doc_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="source not found")
+    from fastapi.responses import FileResponse
+    return FileResponse(str(path), filename=path.name)
 
 
 @app.get("/admin/index/status")

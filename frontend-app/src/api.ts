@@ -1,5 +1,5 @@
 // frontend-app/src/api.ts
-import type { AssistResponse, TimelineResponse } from "./types";
+import type { AssistResponse, CallSummary, TimelineResponse } from "./types";
 
 async function jsonOrThrow<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
@@ -48,10 +48,13 @@ export function getTimeline(callId: string): Promise<TimelineResponse> {
   );
 }
 
-export function postSummary(callId: string): Promise<Record<string, unknown>> {
+export function postSummary(
+  callId: string,
+  pacienteId?: string,
+): Promise<CallSummary> {
   return fetch("/api/summary", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ call_id: callId }),
-  }).then((r) => jsonOrThrow(r));
+    body: JSON.stringify({ call_id: callId, paciente_id: pacienteId }),
+  }).then((r) => jsonOrThrow<CallSummary>(r));
 }

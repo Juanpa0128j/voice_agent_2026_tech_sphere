@@ -15,7 +15,7 @@ def test_timeline_returns_turns_after_assist_calls():
     assert body["call_id"] == call_id
     assert isinstance(body["turns"], list)
     assert len(body["turns"]) >= 1
-    assert set(body["turns"][0].keys()) == {"transcript", "response", "decision"}
+    assert set(body["turns"][0].keys()) == {"transcript", "response", "decision", "retrieval"}
 
 
 def test_timeline_404_for_unknown_call_id():
