@@ -403,18 +403,32 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
             content=_module_unavailable_response("llm"),
         )
 
-    try:
-        decision_payload = decision.decide(transcript, retrieval, response_text)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Decision engine failed: %s", exc)
+    if is_greeting:
+        # Never run clinical decision logic on a greeting: there is no
+        # patient input yet, and structured symptom extraction has been
+        # observed to hallucinate plausible-looking findings from an
+        # empty transcript.
         decision_payload = {
             "label": "verde",
             "score": 0,
-            "rationale": "No se pudo evaluar automáticamente",
+            "rationale": "",
             "alert": False,
             "action": "respond",
-            "reason": "fallback",
+            "reason": "greeting",
         }
+    else:
+        try:
+            decision_payload = decision.decide(transcript, retrieval, response_text)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Decision engine failed: %s", exc)
+            decision_payload = {
+                "label": "verde",
+                "score": 0,
+                "rationale": "No se pudo evaluar automáticamente",
+                "alert": False,
+                "action": "respond",
+                "reason": "fallback",
+            }
 
     patient_payload: Optional[Dict[str, Any]] = None
     if req.paciente_id:

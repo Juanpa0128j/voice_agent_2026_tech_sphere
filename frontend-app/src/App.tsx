@@ -33,6 +33,8 @@ export default function App() {
     decision,
     patient,
     retrieval,
+    muted,
+    toggleMute,
     startListening,
     stopAndSend,
     callId,
@@ -121,13 +123,28 @@ export default function App() {
         <div className="shrink-0">
           <VoiceVisualizer state={state} />
         </div>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={handleMicClick}
-          className="shrink-0 rounded-full bg-clinical-blue px-6 py-2 font-medium text-white shadow-md transition-shadow hover:shadow-lg"
-        >
-          {recording ? "Detener y enviar" : "Hablar"}
-        </motion.button>
+        <div className="flex shrink-0 gap-2">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={handleMicClick}
+            disabled={muted}
+            className="rounded-full bg-clinical-blue px-6 py-2 font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {recording ? "Detener y enviar" : "Hablar"}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={toggleMute}
+            title={muted ? "Reactivar micrófono" : "Silenciar y pausar"}
+            className={`rounded-full px-4 py-2 font-medium shadow-md transition-shadow hover:shadow-lg ${
+              muted
+                ? "bg-clinical-red text-white"
+                : "bg-white text-slate-600 ring-1 ring-slate-300"
+            }`}
+          >
+            {muted ? "Silenciado" : "Silenciar"}
+          </motion.button>
+        </div>
         <TranscriptViewer turns={turns} />
       </main>
 

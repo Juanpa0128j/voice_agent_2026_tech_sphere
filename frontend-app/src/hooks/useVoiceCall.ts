@@ -15,11 +15,35 @@ export function useVoiceCall(pacienteId: string) {
   const [decision, setDecision] = useState<Decision | null>(null);
   const [patient, setPatient] = useState<PatientContext | null>(null);
   const [retrieval, setRetrieval] = useState<RetrievalItem[]>([]);
+  const [muted, setMuted] = useState(false);
   const callIdRef = useRef(crypto.randomUUID());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mutedRef = useRef(false);
+
+  const toggleMute = useCallback(() => {
+    setMuted((prev) => {
+      const next = !prev;
+      mutedRef.current = next;
+      if (next) {
+        // Pause the system: stop any playing agent audio and any active
+        // recording, without losing whatever was already captured.
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause();
+        }
+        const recorder = mediaRecorderRef.current;
+        if (recorder && recorder.state !== "inactive") {
+          recorder.stream.getTracks().forEach((t) => t.stop());
+        }
+        setState("waiting");
+      }
+      return next;
+    });
+  }, []);
 
   const startListening = useCallback(async () => {
+    if (mutedRef.current) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -68,12 +92,18 @@ export function useVoiceCall(pacienteId: string) {
       setDecision(result.decision);
       setPatient(result.patient);
       setRetrieval(result.retrieval);
+
+      if (mutedRef.current) {
+        setState("waiting");
+        return;
+      }
       setState(result.decision.label === "rojo" ? "escalation" : "speaking");
 
       try {
         const audio = await postTts(result.response);
         const url = URL.createObjectURL(audio);
         const player = new Audio(url);
+        currentAudioRef.current = player;
         player.onended = () =>
           setState(result.decision.label === "rojo" ? "escalation" : "waiting");
         await player.play();
@@ -110,10 +140,16 @@ export function useVoiceCall(pacienteId: string) {
         setPatient(result.patient);
         setRetrieval(result.retrieval);
 
+        if (mutedRef.current) {
+          setState("waiting");
+          return;
+        }
+
         try {
           const audio = await postTts(result.response);
           const url = URL.createObjectURL(audio);
           const player = new Audio(url);
+          currentAudioRef.current = player;
           player.onended = () => {
             if (!cancelled) setState("waiting");
           };
@@ -137,6 +173,8 @@ export function useVoiceCall(pacienteId: string) {
     decision,
     patient,
     retrieval,
+    muted,
+    toggleMute,
     startListening,
     stopAndSend,
     callId: callIdRef.current,
