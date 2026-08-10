@@ -42,10 +42,15 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
 
+  // Only the most recent turn's findings — showing every symptom ever
+  // mentioned in the call makes old, resolved, or off-topic turns look
+  // like they're still relevant "right now". Full history lives in the
+  // Actividad del agente timeline.
+  const lastTurn = turns[turns.length - 1];
   const symptoms = Array.from(
     new Set(
-      turns
-        .flatMap((t) => (t.decision.rationale || "").split(";"))
+      (lastTurn?.decision.rationale || "")
+        .split(";")
         .map((s) => s.trim())
         .filter((r) => r.length > 0 && !NO_SYMPTOM_RATIONALES.has(r)),
     ),
