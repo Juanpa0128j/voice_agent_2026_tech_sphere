@@ -15,6 +15,7 @@ class LLMClient:
             )
         self.model = model
         self.client = Groq(api_key=self.api_key)
+        self.last_usage: Dict[str, int] = {}
 
     def _call(self, messages: List[Dict[str, Any]], **kwargs: Any) -> Dict[str, Any]:
         last_exc = None
@@ -77,6 +78,7 @@ class LLMClient:
             context_docs=[context] if context else None,
         )
         result = self._call(messages, temperature=0.3, max_tokens=500)
+        self.last_usage = result.get("usage", {})
         return result.get("content", "")
 
 

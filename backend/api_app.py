@@ -438,7 +438,14 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     if metrics is not None:
         try:
-            metrics.record("assist", latency_ms=elapsed_ms, ok=True)
+            usage = getattr(llm, "last_usage", {}) or {}
+            metrics.record(
+                "assist",
+                latency_ms=elapsed_ms,
+                ok=True,
+                prompt_tokens=usage.get("prompt_tokens", 0),
+                completion_tokens=usage.get("completion_tokens", 0),
+            )
         except Exception as exc:  # noqa: BLE001
             logger.debug("Metrics record failed: %s", exc)
 

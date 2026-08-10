@@ -1,5 +1,6 @@
 """Tests for LLM client (Groq)."""
 import pytest
+from unittest.mock import MagicMock, patch
 from backend.llm import LLMClient, build_messages
 
 
@@ -28,4 +29,28 @@ def test_build_messages_with_context():
     system_content = messages[0]["content"]
     assert "Doc 1" in system_content
     assert "Doc 2" in system_content
+
+
+def test_generate_records_token_usage_on_last_usage():
+    """generate() must stash the real Groq usage so callers can report
+    tokens/cost — metrics.py has no other source for these numbers."""
+    client = LLMClient(api_key="test_key")
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "Hola, ¿cómo te sientes?"
+    mock_response.usage.prompt_tokens = 123
+    mock_response.usage.completion_tokens = 45
+    mock_response.usage.total_tokens = 168
+
+    with patch.object(
+        client.client.chat.completions, "create", return_value=mock_response
+    ):
+        text = client.generate(transcript="hola")
+
+    assert text == "Hola, ¿cómo te sientes?"
+    assert client.last_usage == {
+        "prompt_tokens": 123,
+        "completion_tokens": 45,
+        "total_tokens": 168,
+    }
 

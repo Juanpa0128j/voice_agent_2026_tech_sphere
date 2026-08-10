@@ -151,11 +151,24 @@ Diagrama detallado en [`docs/architecture-diagram.png`](docs/architecture-diagra
 
 ## Métricas (rubrica §5)
 
-Reportadas en `/api/metrics` después de cada llamada:
+Reportadas en `/api/metrics`, acumuladas sobre todas las llamadas al proceso (`backend/metrics.py`):
 
-- **Latencia**: P50 y P95 desde que el paciente termina de hablar hasta que empieza a sonar el audio del agente.
-- **Consumo**: tokens de entrada y salida por turno, invocaciones al modelo por turno, consultas al RAG por llamada.
-- **Costo estimado por llamada**: basado en precios públicos de Groq para `llama-3.1-8b-instant` ($0.05/M input, $0.08/M output, free tier).
+- **Latencia**: P50 y P95 de `/api/assist` (RAG + LLM + decisión; no incluye STT/TTS, que son endpoints separados).
+- **Consumo**: tokens de entrada/salida acumulados, tomados del campo `usage` real de la respuesta de Groq (`llm.py`'s `last_usage`), no estimados.
+- **Costo estimado**: `tokens_in/1M * $0.59 + tokens_out/1M * $0.79` (tarifas usadas en `metrics.py` para `llama-3.1-8b-instant`).
+
+**Medición real** (3 llamadas consecutivas — saludo + 2 turnos, servidor local, 9 ago 2026):
+
+```json
+{
+  "requests": 3,
+  "latency_ms": { "p50": 1321, "p95": 1572, "count": 3 },
+  "tokens": { "prompt": 3419, "completion": 373, "total": 3792 },
+  "cost_usd": 0.002312
+}
+```
+
+Reproducible: levanta el backend, haz 2-3 llamadas a `/api/assist`, y consulta `GET /api/metrics`.
 
 Resultados de calibración sobre 160 casos ground-truth (ver `docs/informe-final.md`):
 
