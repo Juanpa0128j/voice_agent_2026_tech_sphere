@@ -324,7 +324,7 @@ Desarrollo iterativo con TDD estricto: cada endpoint/módulo nuevo se implement�
 | 01  | Repositorio público      | ✅ https://github.com/Juanpa0128j/voice_agent_2026_tech_sphere |
 | 02  | Diagrama de arquitectura | ✅ `docs/architecture-diagram.png`                             |
 | 03  | Informe final            | ✅ Este documento                                              |
-| 04  | Video demo               | ⏳ Pendiente de grabación                                      |
+| 04  | Video demo               | ✅ https://www.youtube.com/watch?v=8az1c8zRiF8                 |
 
 ---
 
@@ -356,7 +356,7 @@ Desarrollo iterativo con TDD estricto: cada endpoint/módulo nuevo se implement�
 
 ### Compuertas eliminatorias
 
-- **G1**: 4 entregables completos → 3 de 4 listos, video pendiente de grabación.
+- **G1**: 4 entregables completos → ✅ 4 de 4 listos.
 - **G2**: Levantar en ≤15 min → ✅ `modal deploy modal_app.py` con secreto pre-configurado (ver README Quickstart).
 - **G3**: Modelo permitido → ✅ Llama 3.1 8B Instant (familia Llama, Groq tier gratuito).
 - **G4**: Voz en tiempo real → ✅ Groq Whisper (STT) + edge-tts (TTS), verificado end-to-end con audio real.
@@ -370,7 +370,7 @@ Desarrollo iterativo con TDD estricto: cada endpoint/módulo nuevo se implement�
 | Lógica de decisión + escalamiento           | 20  | ✅ Extracción estructurada + reglas deterministas, `rationale` explícito por decisión                                  |
 | Comprensión + diseño conversación           | 15  | ✅ System prompt + glosario colombiano + disclaimer clínico + saludo acortado                                          |
 | Calidad de voz                              | 15  | ✅ STT/TTS en servidor, latencia de cold-start mitigada, markdown limpiado antes de TTS                                |
-| Video de argumentación                      | 15  | ⏳ Pendiente de grabación                                                                                              |
+| Video de argumentación                      | 15  | ✅ https://www.youtube.com/watch?v=8az1c8zRiF8                                                                         |
 | Repositorio + proceso + buenas prácticas    | 15  | ✅ 69/69 tests, README con Quickstart ≤15min, CI de deploy automatizado, revisión de código en cada cambio de frontend |
 
 ### Verificación técnica

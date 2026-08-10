@@ -5,7 +5,7 @@ Agente de voz con IA para seguimiento postoperatorio. Construido para el [Tech S
 ## Demo
 
 - **Live demo (desplegado):** https://juanpa0128j--voice-agent.modal.run
-- **Video demo (YouTube unlisted):** https://youtu.be/PLACEHOLDER
+- **Video demo (YouTube unlisted):** https://www.youtube.com/watch?v=8az1c8zRiF8
 - **Diagrama de arquitectura:** [`docs/architecture-diagram.png`](docs/architecture-diagram.png)
 - **Informe final:** [`docs/informe-final.md`](docs/informe-final.md)
 
