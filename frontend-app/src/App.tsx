@@ -26,6 +26,33 @@ interface Toast {
   kind: "success" | "error";
 }
 
+function MicIcon({ muted }: { muted: boolean }) {
+  if (muted) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+        <path
+          d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 5.12 2.12M19 10v2a7 7 0 0 1-1.02 3.65M5 10v2a7 7 0 0 0 10.54 6.04M12 19v3M3 3l18 18"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+      <path
+        d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function App() {
   const {
     state,
@@ -35,11 +62,10 @@ export default function App() {
     retrieval,
     muted,
     toggleMute,
+    liveCaption,
     startListening,
-    stopAndSend,
     callId,
   } = useVoiceCall(DEFAULT_PACIENTE_ID);
-  const recording = state === "listening";
   const [summary, setSummary] = useState<CallSummary | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastIdRef = useRef(0);
@@ -69,19 +95,15 @@ export default function App() {
     [],
   );
 
-  const handleMicClick = async () => {
-    if (!recording) {
-      await startListening();
-    } else {
-      await stopAndSend();
-    }
-  };
-
   const handleEscalate = () => {
     showToast("Escalado a profesional de salud (demo)", "success");
   };
 
   const handleContinue = async () => {
+    if (muted) {
+      showToast("El micrófono está silenciado", "error");
+      return;
+    }
     try {
       await startListening();
       showToast("Monitoreo continuado — escuchando", "success");
@@ -91,8 +113,12 @@ export default function App() {
   };
 
   const handleFollowUp = async () => {
+    if (muted) {
+      showToast("El micrófono está silenciado", "error");
+      return;
+    }
     try {
-      await handleMicClick();
+      await startListening();
     } catch {
       showToast("No se pudo procesar la pregunta de seguimiento", "error");
     }
@@ -123,28 +149,21 @@ export default function App() {
         <div className="shrink-0">
           <VoiceVisualizer state={state} />
         </div>
-        <div className="flex shrink-0 gap-2">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleMicClick}
-            disabled={muted}
-            className="rounded-full bg-clinical-blue px-6 py-2 font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {recording ? "Detener y enviar" : "Hablar"}
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleMute}
-            title={muted ? "Reactivar micrófono" : "Silenciar y pausar"}
-            className={`rounded-full px-4 py-2 font-medium shadow-md transition-shadow hover:shadow-lg ${
-              muted
-                ? "bg-clinical-red text-white"
-                : "bg-white text-slate-600 ring-1 ring-slate-300"
-            }`}
-          >
-            {muted ? "Silenciado" : "Silenciar"}
-          </motion.button>
-        </div>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={toggleMute}
+          title={muted ? "Reactivar micrófono" : "Silenciar micrófono"}
+          className={`shrink-0 rounded-full p-4 shadow-md transition-shadow hover:shadow-lg ${
+            muted ? "bg-clinical-red text-white" : "bg-clinical-blue text-white"
+          }`}
+        >
+          <MicIcon muted={muted} />
+        </motion.button>
+        {liveCaption && (
+          <p className="w-full shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-center text-sm italic text-slate-500">
+            {liveCaption}
+          </p>
+        )}
         <TranscriptViewer turns={turns} />
       </main>
 
