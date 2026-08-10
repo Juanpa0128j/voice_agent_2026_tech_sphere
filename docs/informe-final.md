@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-Construí un agente de voz en español que conversa con pacientes después de una cirugía, detecta síntomas, fundamenta sus respuestas en guías clínicas mediante RAG, y escala a personal médico cuando es necesario. Backend en FastAPI con pipeline STT → RAG → LLM → decisión → TTS, frontend React (cockpit clínico de 3 paneles), desplegado en Modal con ChromaDB persistente. 60/60 tests pasando.
+Construí un agente de voz en español que conversa con pacientes después de una cirugía, detecta síntomas, fundamenta sus respuestas en guías clínicas mediante RAG, y escala a personal médico cuando es necesario. Backend en FastAPI con pipeline STT → RAG → LLM → decisión → TTS, frontend React (cockpit clínico de 3 paneles), desplegado en Modal con ChromaDB persistente. 69/69 tests pasando.
 
 ---
 
@@ -241,9 +241,22 @@ El sistema prompt (`backend/prompts.py`) instruye al modelo a:
 
 Reemplacé la interfaz de chat simple original por un **cockpit clínico de 3 paneles** (React + Vite + Tailwind + shadcn/ui + Framer Motion), pensado para comunicar "asistente clínico monitoreando a un paciente en recuperación" en vez de "chatbot":
 
-- **Panel izquierdo — contexto del paciente**: nombre, procedimiento, día postoperatorio, EPS, comorbilidades, estado de recuperación (badge verde/amarillo/rojo), síntomas detectados.
-- **Panel central — conversación de voz**: orbe animado con estado del agente (escuchando / procesando / hablando / escalamiento), botón de push-to-talk, transcript en vivo.
-- **Panel derecho — inteligencia del agente**: nivel de riesgo y confianza, timeline de turnos clasificados, fuentes RAG citadas por cada respuesta, botones de acción (escalar a profesional, continuar monitoreo, pregunta de seguimiento, generar reporte del paciente — el reporte se renderiza en el mismo panel).
+- **Panel izquierdo — contexto del paciente**: nombre, procedimiento, día postoperatorio, EPS, comorbilidades, estado de recuperación (badge verde/amarillo/rojo), síntomas del turno más reciente.
+- **Panel central — conversación de voz**: orbe animado con estado del agente (escuchando / procesando / hablando / escalamiento), transcript en vivo, caption en tiempo real (best-effort).
+- **Panel derecho — inteligencia del agente**: nivel de riesgo y confianza, timeline de turnos clasificados, fuentes RAG citadas por cada respuesta (con enlace al documento real), banner automático de escalamiento, y controles de fin de llamada / generar reporte.
+
+**Interacción de voz — escucha continua, no push-to-talk.** La primera versión del cockpit usaba un botón manual "Hablar" / "Detener y enviar" (push-to-talk clásico). Lo reemplacé por escucha continua real, portando la técnica de detección de silencio por RMS que ya existía en el frontend original:
+
+- El micrófono se activa solo después de cada respuesta del agente (y tras el saludo de apertura).
+- Un `AnalyserNode` mide el volumen del micrófono en tiempo real; ~2.2s de silencio después de detectar voz cierra la grabación y envía el turno automáticamente — sin botón de confirmar.
+- **Barge-in**: el paciente puede interrumpir al agente mientras habla. El mismo monitor de audio, cuando el agente está reproduciendo TTS, detecta voz por encima de un umbral distinto y corta la reproducción para empezar a grabar de inmediato.
+- El único control manual restante es un ícono de micrófono que silencia/pausa — deja de escuchar sin detener al agente si ya está hablando (antes, silenciar pausaba todo el sistema, lo cual no era la intención).
+- El escalamiento a `rojo` es automático, no un botón — el sistema ya calcula la decisión, así que un botón "escalar" manual era una acción falsa. Ahora dispara un aviso automático la primera vez que una decisión clasifica como rojo.
+- **Fin de llamada**: al inicio del cockpit no había ninguna forma de terminar la llamada — el ciclo de escucha corría indefinidamente. Agregué un botón "Finalizar llamada" que detiene el ciclo y genera el resumen estructurado automáticamente.
+
+**Bug real encontrado y corregido durante esta iteración**: el turno de saludo nunca se guardaba en el historial de conversación (`ConversationStore`), así que el modelo no tenía memoria de haberse presentado — en el segundo turno real, el agente volvía a decir "Hola, soy MediCol..." como si fuera la primera vez. Se corrigió guardando también el saludo en el historial.
+
+**Otro bug real, encontrado con pruebas automatizadas, no leyendo código**: el barge-in inicial nunca funcionaba durante la reproducción real de TTS (porque revisaba una bandera que está activa durante toda la fase de habla por diseño), pero sí se disparaba falsamente durante el saludo, antes de que existiera audio para interrumpir (porque la fase cambiaba a "hablando" antes de empezar a reproducir). Corregido separando "ocupado procesando el turno" de "hay audio real sonando ahora".
 
 ---
 
@@ -358,11 +371,11 @@ Desarrollo iterativo con TDD estricto: cada endpoint/módulo nuevo se implement�
 | Comprensión + diseño conversación           | 15  | ✅ System prompt + glosario colombiano + disclaimer clínico + saludo acortado                                          |
 | Calidad de voz                              | 15  | ✅ STT/TTS en servidor, latencia de cold-start mitigada, markdown limpiado antes de TTS                                |
 | Video de argumentación                      | 15  | ⏳ Pendiente de grabación                                                                                              |
-| Repositorio + proceso + buenas prácticas    | 15  | ✅ 60/60 tests, README con Quickstart ≤15min, CI de deploy automatizado, revisión de código en cada cambio de frontend |
+| Repositorio + proceso + buenas prácticas    | 15  | ✅ 69/69 tests, README con Quickstart ≤15min, CI de deploy automatizado, revisión de código en cada cambio de frontend |
 
 ### Verificación técnica
 
-- 60/60 unit tests pasando (`PYTHONPATH=. pytest tests/ -v`)
+- 69/69 unit tests pasando (`PYTHONPATH=. pytest tests/ -v`)
 - Pipeline completo verificado end-to-end con audio real sintetizado (STT → RAG → LLM → decisión → TTS) contra el backend corriendo localmente
 - Cockpit React verificado end-to-end en navegador headless con micrófono simulado: saludo, turno de usuario, panel de riesgo, panel de evidencia, timeline, todos poblados con datos reales del backend
 - Consola admin: subida y eliminación de documento verificadas, el agente aprende y olvida

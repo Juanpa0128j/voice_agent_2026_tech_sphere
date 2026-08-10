@@ -11,6 +11,19 @@ Agente de voz con IA para seguimiento postoperatorio. Construido para el [Tech S
 
 > End-to-end verified: STT → RAG (BGE-M3 + ChromaDB) → LLM (Groq Llama 3.1 8B Instant) → decision (verde/amarillo/rojo) → TTS, con ChromaDB persistente en Modal Volume.
 
+## Interacción de voz
+
+El cockpit (`frontend-app/`, React + Vite) escucha por defecto — no hay botón de "hablar" ni de "confirmar":
+
+1. Al abrir la llamada, el agente saluda automáticamente.
+2. Cuando termina de hablar, el micrófono se activa solo.
+3. Detección de silencio (~2.2s) por RMS decide cuándo terminaste de hablar y envía el turno automáticamente.
+4. **Barge-in**: puedes interrumpir al agente mientras habla — el sistema detecta tu voz por encima de un umbral y corta la reproducción para escucharte.
+5. El único control manual es un ícono de micrófono que silencia/pausa (deja de escuchar, pero el agente sigue hablando si ya estaba hablando) — no detiene toda la llamada.
+6. **Escalamiento** a `rojo` es automático — no hay botón "escalar", el sistema lo hace y lo notifica.
+7. "Finalizar llamada" detiene el ciclo de escucha y genera el resumen estructurado automáticamente.
+8. Caption en vivo (best-effort, vía `SpeechRecognition` del navegador) — solo visual, el transcript real que usa el pipeline siempre viene de Groq Whisper.
+
 ## Modelo de lenguaje y voz (declaración explícita)
 
 - **LLM**: Groq + Llama 3.1 8B Instant (`llama-3.1-8b-instant`) — familia Meta Llama,
@@ -112,7 +125,11 @@ Everything below was tested against the live Modal deployment
 ## Arquitectura
 
 ```
-[Paciente] → (mic) → [Browser STT es-CO] → transcript
+[Paciente] → (mic, MediaRecorder + AnalyserNode) → audio blob
+                                              ↓
+                                  POST /api/stt (Groq Whisper)
+                                              ↓
+                                         transcript
                                               ↓
                                   POST /api/assist
                                               ↓
@@ -122,32 +139,38 @@ Everything below was tested against the live Modal deployment
             │  3. prompts.py        → system prompt + glosario│
             │  4. llm.py            → Groq Llama 3.1 8B      │
             │  5. decision.py       → LLM JSON → reglas      │
-            │  6. conversation.py   → siguiente pregunta     │
+            │  6. conversation.py   → historial persistido   │
             │  7. summary.py        → resumen al cerrar      │
             │  8. metrics.py        → P50/P95/tokens/costo   │
             └───────────────────────────────────────────────┘
                                               ↓
-                response (texto) + decision (verde/amarillo/rojo) + sources
+                response (texto) + decision (verde/amarillo/rojo) + sources + patient
                                               ↓
-                           [Browser TTS es-CO] → (speaker) → [Paciente]
+                                  POST /api/tts (edge-tts)
+                                              ↓
+                           MP3 stream → (speaker) → [Paciente]
 ```
+
+El cockpit escucha continuamente (silencio → auto-envío, sin botones de confirmar) y permite interrumpir al agente mientras habla (barge-in). Ver "Interacción de voz" arriba.
 
 Diagrama detallado en [`docs/architecture-diagram.png`](docs/architecture-diagram.png).
 
 ## Endpoints
 
-| Método | Path               | Descripción                                                                                                                             |
-| ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/health`      | Liveness probe                                                                                                                          |
-| POST   | `/api/assist`      | Endpoint principal. Acepta `{transcript, call_id?, k?, paciente_id?, greeting?}`; `greeting=true` con transcript vacío abre la llamada. |
-| GET    | `/api/metrics`     | P50/P95 latencia, tokens, costo estimado                                                                                                |
-| POST   | `/api/summary`     | Resumen estructurado de una llamada cerrada                                                                                             |
-| POST   | `/api/stt`         | Transcripción de audio (Whisper) — multipart file → `{text, language, duration_ms}`                                                     |
-| POST   | `/api/tts`         | Síntesis de voz colombiana (edge-tts) — `{text}` → stream `audio/mpeg`                                                                  |
-| GET    | `/admin/documents` | Lista de documentos en la base de conocimiento                                                                                          |
-| POST   | `/admin/upload`    | Subir PDF/TXT/MD, lo agrega a ChromaDB                                                                                                  |
-| POST   | `/admin/delete`    | Eliminar documento de ChromaDB                                                                                                          |
-| POST   | `/admin/reindex`   | Re-indexar todo `ADMIN_DATA_DIR`                                                                                                        |
+| Método | Path                      | Descripción                                                                                                                                                                                                     |
+| ------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/health`             | Liveness probe                                                                                                                                                                                                  |
+| POST   | `/api/assist`             | Endpoint principal. Acepta `{transcript, call_id?, k?, paciente_id?, greeting?}`; `greeting=true` con transcript vacío abre la llamada. Devuelve `patient` (contexto clínico) además de `decision`/`retrieval`. |
+| GET    | `/api/metrics`            | P50/P95 latencia, tokens, costo estimado                                                                                                                                                                        |
+| POST   | `/api/summary`            | Resumen estructurado de una llamada, con contexto real del paciente y fuentes RAG citadas                                                                                                                       |
+| POST   | `/api/stt`                | Transcripción de audio (Whisper) — multipart file → `{text, language, duration_ms}`                                                                                                                             |
+| POST   | `/api/tts`                | Síntesis de voz colombiana (edge-tts) — `{text}` → stream `audio/mpeg`                                                                                                                                          |
+| GET    | `/api/timeline/{call_id}` | Historial turno-por-turno de una llamada (transcript/response/decision/retrieval)                                                                                                                               |
+| GET    | `/api/source/{doc_id}`    | Sirve el archivo fuente real citado en `retrieval` (con guard contra path traversal)                                                                                                                            |
+| GET    | `/admin/documents`        | Lista de documentos en la base de conocimiento                                                                                                                                                                  |
+| POST   | `/admin/upload`           | Subir PDF/TXT/MD, lo agrega a ChromaDB                                                                                                                                                                          |
+| POST   | `/admin/delete`           | Eliminar documento de ChromaDB                                                                                                                                                                                  |
+| POST   | `/admin/reindex`          | Re-indexar todo `ADMIN_DATA_DIR`                                                                                                                                                                                |
 
 ## Métricas (rubrica §5)
 
@@ -184,7 +207,7 @@ Resultados de calibración sobre 160 casos ground-truth (ver `docs/informe-final
 PYTHONPATH=. .venv/bin/pytest tests/ -v
 ```
 
-**68/68 tests passing.** Cobertura: 80 %+ en lógica clínica (`decision.py`, `summary.py`), más 7 tests de robustez Capa 2 ruidosa (`tests/test_noisy_capa2.py`) y 8 tests de voz (`tests/test_voice.py`).
+**69/69 tests passing.** Cobertura: 80 %+ en lógica clínica (`decision.py`, `summary.py`), más 7 tests de robustez Capa 2 ruidosa (`tests/test_noisy_capa2.py`) y 8 tests de voz (`tests/test_voice.py`). El frontend (`frontend-app/`) no tiene suite unitaria propia (sin framework de test instalado) — se verifica end-to-end con Playwright + micrófono simulado (`--use-fake-device-for-media-stream`) contra el backend real en cada cambio.
 
 ## Estructura
 
@@ -201,9 +224,14 @@ PYTHONPATH=. .venv/bin/pytest tests/ -v
 │   ├── summary.py          # Resumen estructurado
 │   ├── metrics.py          # P50/P95/tokens/costo
 │   └── requirements.txt
+├── frontend-app/           # Cockpit clínico (React + Vite + Tailwind + shadcn/ui)
+│   ├── src/
+│   │   ├── App.tsx             # Layout de 3 paneles
+│   │   ├── hooks/useVoiceCall.ts   # Escucha continua, silencio, barge-in, mute, fin de llamada
+│   │   └── components/         # PatientCard, VoiceVisualizer, RiskAssessment, etc.
+│   └── dist/                # Build servido por FastAPI en /static (ver modal_app.py)
 ├── frontend/
-│   ├── index.html          # UI de voz (STT + TTS)
-│   └── admin.html          # Consola de conocimiento
+│   └── admin.html          # Consola de conocimiento (servida en /admin, sin cambios)
 ├── dataset/                # Vendored from TechSphere2026/ParticipantArtifacts
 │   ├── textos/             # 107 PDFs clínicos
 │   ├── textos_uploaded/    # PDFs subidos en runtime (en Modal Volume)
@@ -217,7 +245,7 @@ PYTHONPATH=. .venv/bin/pytest tests/ -v
 │   ├── stack-tecnico.md
 │   ├── informe-final.md
 │   └── video-guion.md
-├── tests/                  # 60 tests
+├── tests/                  # 69 tests
 ├── scripts/                # calibrate.py, smoke_test.py
 ├── Dockerfile              # root: HF Spaces + Modal compatible
 ├── modal_app.py            # Modal deploy: @modal.asgi_app + Volumes
