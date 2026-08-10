@@ -12,7 +12,7 @@ import { CallSummaryCard } from "./components/CallSummaryCard";
 import { useVoiceCall } from "./hooks/useVoiceCall";
 import { postSummary } from "./api";
 import type { CallSummary } from "./types";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const DEFAULT_PACIENTE_ID = "P001";
 const NO_SYMPTOM_RATIONALES = new Set([
@@ -61,9 +61,10 @@ export default function App() {
     patient,
     retrieval,
     muted,
+    ended,
     toggleMute,
     liveCaption,
-    startListening,
+    endCall,
     callId,
   } = useVoiceCall(DEFAULT_PACIENTE_ID);
   const [summary, setSummary] = useState<CallSummary | null>(null);
@@ -95,43 +96,49 @@ export default function App() {
     [],
   );
 
-  const handleEscalate = () => {
-    showToast("Escalado a profesional de salud (demo)", "success");
-  };
+  // Escalation is automatic, not a manual action: the moment the decision
+  // engine classifies a turn as rojo, fire the alert once (not on every
+  // re-render while it stays rojo).
+  const escalatedRef = useRef(false);
+  useEffect(() => {
+    if (decision?.label === "rojo" && !escalatedRef.current) {
+      escalatedRef.current = true;
+      showToast(
+        "Alerta enviada automáticamente a profesional de salud",
+        "success",
+      );
+    } else if (decision?.label !== "rojo") {
+      escalatedRef.current = false;
+    }
+  }, [decision, showToast]);
 
-  const handleContinue = async () => {
-    if (muted) {
-      showToast("El micrófono está silenciado", "error");
-      return;
-    }
-    try {
-      await startListening();
-      showToast("Monitoreo continuado — escuchando", "success");
-    } catch {
-      showToast("No se pudo activar el micrófono", "error");
-    }
-  };
-
-  const handleFollowUp = async () => {
-    if (muted) {
-      showToast("El micrófono está silenciado", "error");
-      return;
-    }
-    try {
-      await startListening();
-    } catch {
-      showToast("No se pudo procesar la pregunta de seguimiento", "error");
-    }
-  };
-
-  const handleReport = async () => {
+  const generateSummary = useCallback(async () => {
     try {
       const result = await postSummary(callId, DEFAULT_PACIENTE_ID);
       setSummary(result);
-      showToast("Reporte generado", "success");
+      return true;
     } catch {
-      showToast("No se pudo generar el reporte", "error");
+      return false;
     }
+  }, [callId]);
+
+  const handleReport = async () => {
+    const ok = await generateSummary();
+    showToast(
+      ok ? "Reporte generado" : "No se pudo generar el reporte",
+      ok ? "success" : "error",
+    );
+  };
+
+  const handleEndCall = async () => {
+    endCall();
+    const ok = await generateSummary();
+    showToast(
+      ok
+        ? "Llamada finalizada — resumen generado"
+        : "Llamada finalizada, pero no se pudo generar el resumen",
+      ok ? "success" : "error",
+    );
   };
 
   return (
@@ -152,13 +159,19 @@ export default function App() {
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={toggleMute}
+          disabled={ended}
           title={muted ? "Reactivar micrófono" : "Silenciar micrófono"}
-          className={`shrink-0 rounded-full p-4 shadow-md transition-shadow hover:shadow-lg ${
+          className={`shrink-0 rounded-full p-4 shadow-md transition-shadow hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 ${
             muted ? "bg-clinical-red text-white" : "bg-clinical-blue text-white"
           }`}
         >
           <MicIcon muted={muted} />
         </motion.button>
+        {ended && (
+          <p className="text-sm font-medium text-slate-500">
+            Llamada finalizada
+          </p>
+        )}
         {liveCaption && (
           <p className="w-full shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-center text-sm italic text-slate-500">
             {liveCaption}
@@ -180,10 +193,9 @@ export default function App() {
         <div className="shrink-0">
           <ActionButtons
             escalationRequired={decision?.label === "rojo"}
-            onEscalate={handleEscalate}
-            onContinue={handleContinue}
-            onFollowUp={handleFollowUp}
+            onEndCall={handleEndCall}
             onReport={handleReport}
+            ended={ended}
           />
         </div>
         <AnimatePresence>

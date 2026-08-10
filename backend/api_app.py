@@ -447,7 +447,7 @@ async def assist(req: AssistRequest) -> Dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             logger.warning("patient_context load failed: %s", exc)
 
-    if conversation is not None and not is_greeting:
+    if conversation is not None:
         try:
             conversation.append(call_id, transcript, response_text, decision_payload, retrieval)
         except Exception as exc:  # noqa: BLE001
