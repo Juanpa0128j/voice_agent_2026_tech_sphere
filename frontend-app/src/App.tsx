@@ -9,6 +9,7 @@ import { EvidencePanel } from "./components/EvidencePanel";
 import { ActionButtons } from "./components/ActionButtons";
 import { useVoiceCall } from "./hooks/useVoiceCall";
 import { postSummary } from "./api";
+import { useState } from "react";
 
 const DEFAULT_PACIENTE_ID = "P001";
 
@@ -24,6 +25,7 @@ export default function App() {
     callId,
   } = useVoiceCall(DEFAULT_PACIENTE_ID);
   const recording = state === "listening";
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
 
   const symptoms = Array.from(
     new Set(turns.map((t) => t.decision.rationale).filter(Boolean)),
@@ -64,10 +66,16 @@ export default function App() {
           onEscalate={() => alert("Escalado a profesional de salud (demo)")}
           onContinue={() => startListening()}
           onFollowUp={handleMicClick}
-          onReport={() =>
-            postSummary(callId).then((s) => console.log("summary", s))
-          }
+          onReport={() => postSummary(callId).then(setSummary)}
         />
+        {summary && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+            <p className="mb-2 font-semibold">Resumen de la llamada</p>
+            <pre className="whitespace-pre-wrap break-words text-xs text-slate-700">
+              {JSON.stringify(summary, null, 2)}
+            </pre>
+          </div>
+        )}
       </aside>
     </div>
   );
